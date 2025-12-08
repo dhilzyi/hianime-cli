@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"io"
-	"net/http/httputil"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 
@@ -47,6 +46,40 @@ type AjaxResponse struct {
 type MegacloudUrl struct {
 	Type string `json:"type"`
 	Url  string `json:"link"`
+}
+
+type Sources struct {
+	Sources   []Source  `json:"sources"`
+	Tracks    []Track   `json:"tracks"`
+	Encrypted bool      `json:"encrypted"`
+	Intro     Timestamp `json:"intro"`
+	Outro     Timestamp `json:"outro"`
+	Server    int       `json:"server"`
+}
+type Source struct {
+	File string `json:"file"`
+	Type string `json:"type"`
+}
+
+type Track struct {
+	File    string `json:"file"`
+	Label   string `json:"label"`
+	Kind    string `json:"kind"`
+	Default bool   `json:"default"`
+}
+
+type Timestamp struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
+type StreamData struct {
+	Url       string
+	UserAgent string
+	Referer   string
+	Tracks    []Track
+	Intro     Timestamp
+	Outro     Timestamp
 }
 
 func GetEpisodes(series_url string) []Episodes {
@@ -123,7 +156,6 @@ func GetEpisodes(series_url string) []Episodes {
 	})
 
 	return episodes
-
 }
 
 func GetEpisodeServerId(episode_id int) []ServerList {
@@ -150,7 +182,7 @@ func GetEpisodeServerId(episode_id int) []ServerList {
 	doc.Find(".server-item").Each(func(i int, s *goquery.Selection) {
 		data_type, exists := s.Attr("data-type")
 		if !exists {
-			fmt.Println("Couldn't found data-type: " + err.Error())
+			fmt.Println("Couldn't found 'data-type': " + err.Error())
 		}
 		data_id, exists := s.Attr("data-id")
 		if !exists {
@@ -158,7 +190,7 @@ func GetEpisodeServerId(episode_id int) []ServerList {
 		}
 		int_data_id, err := strconv.Atoi(data_id)
 		if err != nil {
-			fmt.Println("Failed to convert data_id to int: " + err.Error())
+			fmt.Println("Failed to convert 'data_id' to int: " + err.Error())
 		}
 
 		name := s.Find("a").Text()
@@ -196,10 +228,28 @@ func GetIframe(server_id int) string {
 	return url
 }
 
-func ExtractMegacloud(iframe_url string) {
+func GetNonce(html string) string {
+	reStandard := regexp.MustCompile(`\b[a-zA-Z0-9]{48}\b`)
+	nonce := reStandard.FindString(html)
+	if nonce != "" {
+		return nonce
+	}
+
+	reSplit := regexp.MustCompile(`x:\s*"(\w+)",\s*y:\s*"(\w+)",\s*z:\s*"(\w+)"`)
+	matches := reSplit.FindStringSubmatch(html)
+
+	if len(matches) == 4 {
+		return matches[1] + matches[2] + matches[3]
+	}
+
+	return ""
+}
+
+func ExtractMegacloud(iframe_url string) StreamData {
 	parsed_url, err := url.Parse(iframe_url)
 	if err != nil {
 		fmt.Println("Failed to parse url: " + err.Error())
+		return StreamData{}
 	}
 	default_domain := fmt.Sprintf("%s://%s/", parsed_url.Scheme, parsed_url.Host)
 	user_agent := "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
@@ -207,7 +257,7 @@ func ExtractMegacloud(iframe_url string) {
 	req, err := http.NewRequest("GET", iframe_url, nil)
 	if err != nil {
 		fmt.Println("Failed to fecth iframe link: " + err.Error())
-		return
+		return StreamData{}
 	}
 
 	req.Header.Set("User-Agent", user_agent)
@@ -215,36 +265,55 @@ func ExtractMegacloud(iframe_url string) {
 
 	client := &http.Client{}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Failed to request with custom headers: " + err.Error())
-	}
+	max_attempt := 3
+	var file_id string
+	var nonce string
 
-	defer resp.Body.Close()
+	for i := range max_attempt {
+		fmt.Printf("--> Attempt %d/%d to extract...\n", i+1, max_attempt)
 
-	doc_megacloud, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		fmt.Println("Failed to create new document: " + err.Error())
-	}
-	megacloud_player := doc_megacloud.Find("#megacloud-player")
-	file_id, exists := megacloud_player.Attr("data-id")
-	if !exists {
-		fmt.Println("Couldn't found 'file_id': " + err.Error())
-	}
-	re := regexp.MustCompile(`\b[a-zA-Z0-9]{48}\b`)
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Failed to request with custom headers: " + err.Error())
+			continue
+		}
 
-	singleSelect := doc_megacloud.Selection
-	outerHtml, _ := goquery.OuterHtml(singleSelect)
-	nonce := re.FindString(outerHtml)
-	if nonce == "" {
-		fmt.Println("Could not find nonce.")
-	} else {
-		fmt.Println(nonce)
+		defer resp.Body.Close()
+
+		doc_megacloud, err := goquery.NewDocumentFromReader(resp.Body)
+		if err != nil {
+			fmt.Println("Failed to create new document: " + err.Error())
+			continue
+		}
+		megacloud_player := doc_megacloud.Find("#megacloud-player")
+		id, exists := megacloud_player.Attr("data-id")
+		if !exists {
+			fmt.Println("Couldn't found 'file_id': " + err.Error())
+			continue
+		} else {
+			file_id = id
+		}
+
+		singleSelect := doc_megacloud.Selection
+		outerHtml, _ := goquery.OuterHtml(singleSelect)
+
+		nonce = GetNonce(outerHtml)
+		if nonce == "" {
+			fmt.Println("Could not find nonce.")
+			time.Sleep(1)
+			continue
+		} else {
+			fmt.Println("\n--> Extract success.")
+			break
+		}
 	}
 
 	sources_url := fmt.Sprintf("%sembed-2/v3/e-1/getSources?id=%s&_k=%s", default_domain, file_id, nonce)
 	source_req, err := http.NewRequest("GET", sources_url, nil)
-	fmt.Println(sources_url)
+	if err != nil {
+		fmt.Println("Failed when requesting source url: " + err.Error())
+		return StreamData{}
+	}
 
 	extractor_headers := map[string]string{
 		"Accept":           "*/*",
@@ -256,25 +325,45 @@ func ExtractMegacloud(iframe_url string) {
 		source_req.Header.Set(key, value)
 	}
 
-	reqDump, err := httputil.DumpRequestOut(source_req, true)
-	if err != nil {
-		fmt.Println("Error dumping request:", err)
-	} else {
-		fmt.Printf("REQUEST:\n%s\n", string(reqDump))
-	}
+	// reqDump, err := httputil.DumpRequestOut(source_req, true)
+	// if err != nil {
+	// 	fmt.Println("Error dumping request:", err)
+	// } else {
+	// 	fmt.Printf("REQUEST:\n%s\n", string(reqDump))
+	// }
+
 	source_resp, err := client.Do(source_req)
 	if err != nil {
 		fmt.Println("Failed to fetch source url: " + err.Error())
+		return StreamData{}
 	}
 	defer source_resp.Body.Close()
 
-	body, err := io.ReadAll(source_resp.Body)
-	if err != nil {
-		fmt.Println("Failed to read the body: " + err.Error())
+	var source_json Sources
+
+	if err := json.NewDecoder(source_resp.Body).Decode(&source_json); err != nil {
+		fmt.Println("Failed to convert to JSON: " + err.Error())
+		return StreamData{}
 	}
-	//
-	fmt.Println(string(body))
+	// body, err := io.ReadAll(source_resp.Body)
+	// if err != nil {
+	// 	fmt.Println("Failed to read the body: " + err.Error())
+	// }
+
+	// fmt.Println(string(body))
+
+	map_struct := StreamData{
+		Url:       source_json.Sources[0].File,
+		UserAgent: user_agent,
+		Referer:   default_domain,
+		Tracks:    source_json.Tracks,
+		Intro:     source_json.Intro,
+		Outro:     source_json.Outro,
+	}
+
+	return map_struct
 }
+
 func main() {
 	url := "https://hianime.to/planetes-210"
 	scanner := bufio.NewScanner(os.Stdin)
@@ -295,7 +384,7 @@ episode_loop:
 			}
 		}
 
-		fmt.Print("\nEnter number episode to watch (or q to go back): ")
+		fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
 		scanner.Scan()
 
 		eps_input := scanner.Text()
@@ -312,25 +401,29 @@ episode_loop:
 		}
 
 		var servers []ServerList
+		var selected_ep Episodes
 		if int_input > 0 && int_input <= len(cache_episodes) {
-			selected := cache_episodes[int_input-1]
-			fmt.Printf("Episode : %d \nTitle: %s \nUrl: %s\n\n", selected.Number, selected.JapaneseTitle, selected.Url)
-			servers = GetEpisodeServerId(selected.Id)
+			selected_ep = cache_episodes[int_input-1]
+			fmt.Printf("Episode : %d \nTitle: %s \nUrl: %s\n\n", selected_ep.Number, selected_ep.JapaneseTitle, selected_ep.Url)
+			servers = GetEpisodeServerId(selected_ep.Id)
 		} else {
 			fmt.Println("Number is invalid.")
 		}
 	server_loop:
 		for {
 			fmt.Print("\n--- Available Servers ---\n")
-			for i := range len(servers) {
-				ins := servers[i]
+			var selected_server ServerList
 
-				if ins.Type == "dub" {
-					fmt.Printf(" [%d] %s (Dub)\n", i+1, ins.Name)
+			for i := range len(servers) {
+				selected_server = servers[i]
+
+				if selected_server.Type == "dub" {
+					fmt.Printf(" [%d] %s (Dub)\n", i+1, selected_server.Name)
 				} else {
-					fmt.Printf(" [%d] %s\n", i+1, ins.Name)
+					fmt.Printf(" [%d] %s\n", i+1, selected_server.Name)
 				}
 			}
+			fmt.Print("\nEnter server number (or 'q' to go back): ")
 			scanner.Scan()
 
 			server_input := scanner.Text()
@@ -344,12 +437,33 @@ episode_loop:
 				fmt.Printf("Error when converting to int: %s\n", err.Error())
 				continue
 			}
+
+			var stream_data StreamData
+
 			if int_server_input > 0 && int_server_input <= len(cache_episodes) {
 				selected := servers[int_server_input-1]
 				iframe_link := GetIframe(selected.DataId)
-				ExtractMegacloud(iframe_link)
+				stream_data = ExtractMegacloud(iframe_link)
 			} else {
 				fmt.Println("Number is invalid.")
+			}
+
+			if stream_data.Url == "" {
+				fmt.Println("Couldn't found stream url")
+				continue
+			} else {
+				display_title := fmt.Sprintf("[Ep. %d] %s (%s)", selected_ep.Number, selected_ep.JapaneseTitle, selected_server.Name)
+				mpv_commands := []string{
+					"mpv",
+					stream_data.Url,
+					fmt.Sprintf("--referrer=%s", stream_data.Referer),
+					fmt.Sprintf("--user-agent=%s", stream_data.UserAgent),
+					"--ytdl-format=bestvideo+bestaudio/best",
+					fmt.Sprintf("--title=%s", display_title),
+					"--script-opts=osc-title=${title}",
+				}
+
+				fmt.Println(mpv_commands)
 			}
 		}
 	}
