@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -120,7 +121,7 @@ func GetEpisodes(series_url string) []Episodes {
 
 	var episodes []Episodes
 
-	api_doc.Find("a").Each(func(i int, s *goquery.Selection) {
+	api_doc.Find("a.ep-item").Each(func(i int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			fmt.Println("Couldn't found href.")
@@ -154,6 +155,10 @@ func GetEpisodes(series_url string) []Episodes {
 		}
 		episodes = append(episodes, data_structure)
 	})
+
+	// api_html, err := api_doc.Html()
+	//
+	// os.WriteFile("onepiece.html", []byte(api_html), 0644)
 
 	return episodes
 }
@@ -288,7 +293,7 @@ func ExtractMegacloud(iframe_url string) StreamData {
 		megacloud_player := doc_megacloud.Find("#megacloud-player")
 		id, exists := megacloud_player.Attr("data-id")
 		if !exists {
-			fmt.Println("Couldn't found 'file_id': " + err.Error())
+			fmt.Println("Couldn't found 'file_id'.")
 			continue
 		} else {
 			file_id = id
@@ -300,7 +305,7 @@ func ExtractMegacloud(iframe_url string) StreamData {
 		nonce = GetNonce(outerHtml)
 		if nonce == "" {
 			fmt.Println("Could not find nonce.")
-			time.Sleep(1)
+			time.Sleep(1 * time.Second)
 			continue
 		} else {
 			fmt.Println("\n--> Extract success.")
@@ -325,13 +330,6 @@ func ExtractMegacloud(iframe_url string) StreamData {
 		source_req.Header.Set(key, value)
 	}
 
-	// reqDump, err := httputil.DumpRequestOut(source_req, true)
-	// if err != nil {
-	// 	fmt.Println("Error dumping request:", err)
-	// } else {
-	// 	fmt.Printf("REQUEST:\n%s\n", string(reqDump))
-	// }
-
 	source_resp, err := client.Do(source_req)
 	if err != nil {
 		fmt.Println("Failed to fetch source url: " + err.Error())
@@ -345,12 +343,6 @@ func ExtractMegacloud(iframe_url string) StreamData {
 		fmt.Println("Failed to convert to JSON: " + err.Error())
 		return StreamData{}
 	}
-	// body, err := io.ReadAll(source_resp.Body)
-	// if err != nil {
-	// 	fmt.Println("Failed to read the body: " + err.Error())
-	// }
-
-	// fmt.Println(string(body))
 
 	map_struct := StreamData{
 		Url:       source_json.Sources[0].File,
@@ -364,108 +356,168 @@ func ExtractMegacloud(iframe_url string) StreamData {
 	return map_struct
 }
 
+func PlayMpv(mpv_commands []string) {
+	cmdName := mpv_commands[0]
+
+	cmd := exec.Command(cmdName, mpv_commands...)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("Failed to put stdout: " + err.Error())
+	}
+
+	fmt.Println("--> Executing mpv commands...")
+
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error while running mpv: " + err.Error())
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	start_time := time.Now()
+	for scanner.Scan() {
+		line := scanner.Text()
+		end_time := time.Now()
+		if strings.Contains(line, "(+) Video --vid=") {
+			fmt.Println("\nStream is valid. Opening mpv")
+			break
+		} else if strings.Contains(line, "Opening failed") || strings.Contains(line, "HTTP error") {
+			fmt.Println("Failed to stream. Potentially dead link...")
+			cmd.Process.Kill()
+		} else if end_time.Sub(start_time) > 20*time.Second {
+			fmt.Println("Timed out. Terminating the mpv...")
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+
+}
+
 func main() {
 	url := "https://hianime.to/planetes-210"
 	scanner := bufio.NewScanner(os.Stdin)
 
-	var cache_episodes []Episodes
-episode_loop:
+series_loop:
 	for {
-		if len(cache_episodes) > 0 {
-			for i := range len(cache_episodes) {
-				eps := cache_episodes[i]
-				fmt.Printf(" [%d] %s ID: %d\n", eps.Number, eps.JapaneseTitle, eps.Id)
-			}
-		} else {
-			cache_episodes = GetEpisodes(url)
-			for i := range len(cache_episodes) {
-				eps := cache_episodes[i]
-				fmt.Printf(" [%d] %s ID: %d\n", eps.Number, eps.JapaneseTitle, eps.Id)
-			}
-		}
-
-		fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
+		fmt.Print("\nPaste hianime url to fetch: ")
 		scanner.Scan()
 
-		eps_input := scanner.Text()
-		eps_input = strings.TrimSpace(eps_input)
-
-		if eps_input == "q" {
-			break episode_loop
+		series_input := scanner.Text()
+		if series_input == "q" {
+			break series_loop
 		}
 
-		int_input, err := strconv.Atoi(eps_input)
-		if err != nil {
-			fmt.Printf("Error when converting to int: %s\n", err.Error())
+		if strings.Contains(series_input, "hianime.to") {
+			url = series_input
+		} else if series_input == "" {
 			continue
 		}
 
-		var servers []ServerList
-		var selected_ep Episodes
-		if int_input > 0 && int_input <= len(cache_episodes) {
-			selected_ep = cache_episodes[int_input-1]
-			fmt.Printf("Episode : %d \nTitle: %s \nUrl: %s\n\n", selected_ep.Number, selected_ep.JapaneseTitle, selected_ep.Url)
-			servers = GetEpisodeServerId(selected_ep.Id)
-		} else {
-			fmt.Println("Number is invalid.")
-		}
-	server_loop:
+		var cache_episodes []Episodes
+		var selected_series Episodes
+	episode_loop:
 		for {
-			fmt.Print("\n--- Available Servers ---\n")
-			var selected_server ServerList
+			fmt.Printf("--- Series: %s ---\n\n", "B")
 
-			for i := range len(servers) {
-				selected_server = servers[i]
-
-				if selected_server.Type == "dub" {
-					fmt.Printf(" [%d] %s (Dub)\n", i+1, selected_server.Name)
-				} else {
-					fmt.Printf(" [%d] %s\n", i+1, selected_server.Name)
+			if len(cache_episodes) > 0 {
+				for i := range len(cache_episodes) {
+					selected_series = cache_episodes[i]
+					fmt.Printf(" [%d] %s\n", selected_series.Number, selected_series.JapaneseTitle)
+				}
+			} else {
+				cache_episodes = GetEpisodes(url)
+				for i := range len(cache_episodes) {
+					eps := cache_episodes[i]
+					fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
 				}
 			}
-			fmt.Print("\nEnter server number (or 'q' to go back): ")
+
+			fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
 			scanner.Scan()
 
-			server_input := scanner.Text()
-			server_input = strings.TrimSpace(server_input)
+			eps_input := scanner.Text()
+			eps_input = strings.TrimSpace(eps_input)
 
-			if server_input == "q" {
-				break server_loop
+			if eps_input == "q" {
+				break episode_loop
 			}
-			int_server_input, err := strconv.Atoi(server_input)
+
+			int_input, err := strconv.Atoi(eps_input)
 			if err != nil {
 				fmt.Printf("Error when converting to int: %s\n", err.Error())
 				continue
 			}
 
-			var stream_data StreamData
-
-			if int_server_input > 0 && int_server_input <= len(cache_episodes) {
-				selected := servers[int_server_input-1]
-				iframe_link := GetIframe(selected.DataId)
-				stream_data = ExtractMegacloud(iframe_link)
+			var servers []ServerList
+			var selected_ep Episodes
+			if int_input > 0 && int_input <= len(cache_episodes) {
+				selected_ep = cache_episodes[int_input-1]
+				servers = GetEpisodeServerId(selected_ep.Id)
 			} else {
 				fmt.Println("Number is invalid.")
 			}
+		server_loop:
+			for {
+				fmt.Print("\n--- Available Servers ---\n")
 
-			if stream_data.Url == "" {
-				fmt.Println("Couldn't found stream url")
-				continue
-			} else {
-				display_title := fmt.Sprintf("[Ep. %d] %s (%s)", selected_ep.Number, selected_ep.JapaneseTitle, selected_server.Name)
-				mpv_commands := []string{
-					"mpv",
-					stream_data.Url,
-					fmt.Sprintf("--referrer=%s", stream_data.Referer),
-					fmt.Sprintf("--user-agent=%s", stream_data.UserAgent),
-					"--ytdl-format=bestvideo+bestaudio/best",
-					fmt.Sprintf("--title=%s", display_title),
-					"--script-opts=osc-title=${title}",
+				if !(len(servers) > 0) {
+					fmt.Println("\nNo available servers found.")
 				}
 
-				fmt.Println(mpv_commands)
+				for i := range len(servers) {
+					ser_ins := servers[i]
+
+					if ser_ins.Type == "dub" {
+						fmt.Printf(" [%d] %s (Dub)\n", i+1, ser_ins.Name)
+					} else {
+						fmt.Printf(" [%d] %s\n", i+1, ser_ins.Name)
+					}
+				}
+				fmt.Print("\nEnter server number (or 'q' to go back): ")
+				scanner.Scan()
+
+				server_input := scanner.Text()
+				server_input = strings.TrimSpace(server_input)
+
+				if server_input == "q" {
+					break server_loop
+				}
+				int_server_input, err := strconv.Atoi(server_input)
+				if err != nil {
+					fmt.Printf("Error when converting to int: %s\n", err.Error())
+					continue
+				}
+
+				var stream_data StreamData
+				var selected_server ServerList
+
+				if int_server_input > 0 && int_server_input <= len(cache_episodes) {
+					selected_server = servers[int_server_input-1]
+					iframe_link := GetIframe(selected_server.DataId)
+					stream_data = ExtractMegacloud(iframe_link)
+				} else {
+					fmt.Println("Number is invalid.")
+				}
+
+				if stream_data.Url == "" {
+					fmt.Println("Couldn't found stream url")
+					continue
+				} else {
+					display_title := fmt.Sprintf("[Ep. %d] %s (%s)", selected_ep.Number, selected_ep.JapaneseTitle, selected_server.Name)
+					mpv_commands := []string{
+						"mpv.exe",
+						stream_data.Url,
+						fmt.Sprintf("--referrer=%s", stream_data.Referer),
+						fmt.Sprintf("--user-agent=%s", stream_data.UserAgent),
+						"--ytdl-format=bestvideo+bestaudio/best",
+						fmt.Sprintf("--title=%s", display_title),
+						"--script-opts=osc-title=${title}",
+					}
+
+					PlayMpv(mpv_commands)
+				}
 			}
 		}
 	}
-
 }
