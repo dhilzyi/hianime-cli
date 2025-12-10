@@ -23,6 +23,7 @@ var BaseUrl string = "https://hianime.to"
 
 type SeriesData struct {
 	AnimeID string `json:"anime_id"`
+	Name    string `json:"name"`
 }
 
 type Episodes struct {
@@ -78,12 +79,13 @@ type StreamData struct {
 	Url       string
 	UserAgent string
 	Referer   string
+	Origin    string
 	Tracks    []Track
 	Intro     Timestamp
 	Outro     Timestamp
 }
 
-func GetEpisodes(series_url string) []Episodes {
+func GetSeriesData(series_url string) SeriesData {
 	resp, err := http.Get(series_url)
 	if err != nil {
 		log.Fatal(err)
@@ -101,7 +103,11 @@ func GetEpisodes(series_url string) []Episodes {
 	var data SeriesData
 	json.Unmarshal([]byte(rawJson), &data)
 
-	api_url := fmt.Sprintf("%s/ajax/v2/episode/list/%s", BaseUrl, data.AnimeID)
+	return data
+}
+
+func GetEpisodes(animeId string) []Episodes {
+	api_url := fmt.Sprintf("%s/ajax/v2/episode/list/%s", BaseUrl, animeId)
 
 	api_resp, err := http.Get(api_url)
 	if err != nil {
@@ -344,21 +350,62 @@ func ExtractMegacloud(iframe_url string) StreamData {
 		return StreamData{}
 	}
 
-	map_struct := StreamData{
-		Url:       source_json.Sources[0].File,
-		UserAgent: user_agent,
-		Referer:   default_domain,
-		Tracks:    source_json.Tracks,
-		Intro:     source_json.Intro,
-		Outro:     source_json.Outro,
+	map_struct := StreamData{}
+
+	if !source_json.Encrypted || strings.Contains(source_json.Sources[0].File, ".m3u8") {
+		map_struct = StreamData{
+			Url:       source_json.Sources[0].File,
+			UserAgent: user_agent,
+			Referer:   default_domain,
+			Origin:    default_domain,
+			Tracks:    source_json.Tracks,
+			Intro:     source_json.Intro,
+			Outro:     source_json.Outro,
+		}
+	} else {
+		fmt.Println("	Files are encrypted. Try other servers.")
 	}
 
 	return map_struct
 }
 
-func PlayMpv(mpv_commands []string) {
-	cmdName := mpv_commands[0]
+func CreateChapters(data StreamData) string {
+	if data.Intro.Start < 0 && data.Intro.End < 0 {
+		return ""
+	} else if data.Outro.Start <= 0 && data.Outro.End <= 0 {
+		return ""
+	}
 
+	f, err := os.CreateTemp("", "hianime_chapters_*.txt")
+	if err != nil {
+		fmt.Println("Error while creating temporary file: " + err.Error())
+		return ""
+	}
+
+	contents := ";FFMETADATA1\n"
+
+	writePart := func(start, end int, title string) {
+		contents += "[CHAPTER]\n"
+		contents += "TIMEBASE=1/1\n"
+		contents += fmt.Sprintf("START=%d\n", start)
+		contents += fmt.Sprintf("END=%d\n", end)
+		contents += fmt.Sprintf("title=%s\n\n", title)
+	}
+
+	writePart(0, data.Intro.Start, "Part A")
+	writePart(data.Intro.Start, data.Intro.End, "Intro")
+	writePart(data.Intro.End, data.Outro.Start, "Part B")
+	writePart(data.Outro.Start, data.Outro.End, "Outro")
+	writePart(data.Outro.End, 9999999, "Part C")
+
+	f.WriteString(contents)
+	return f.Name()
+}
+
+func PlayMpv(mpv_commands []string) int {
+	cmdName := "mpv.exe"
+
+	var return_value int
 	cmd := exec.Command(cmdName, mpv_commands...)
 
 	stdout, err := cmd.StdoutPipe()
@@ -373,25 +420,33 @@ func PlayMpv(mpv_commands []string) {
 	}
 
 	scanner := bufio.NewScanner(stdout)
-	start_time := time.Now()
+	timer := time.AfterFunc(20*time.Second, func() {
+		fmt.Println("\n⏰ Timeout reached! Killing MPV...")
+		cmd.Process.Kill()
+	})
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		end_time := time.Now()
+
+		// fmt.Println(line)
+
 		if strings.Contains(line, "(+) Video --vid=") {
 			fmt.Println("\nStream is valid. Opening mpv")
-			break
+			// return_value = 0
+			// break
+			timer.Stop()
 		} else if strings.Contains(line, "Opening failed") || strings.Contains(line, "HTTP error") {
 			fmt.Println("Failed to stream. Potentially dead link...")
+			// return_value = 1
 			cmd.Process.Kill()
-		} else if end_time.Sub(start_time) > 20*time.Second {
-			fmt.Println("Timed out. Terminating the mpv...")
 		}
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		fmt.Println("Execute failed.")
 	}
 
+	return return_value
 }
 
 func main() {
@@ -415,18 +470,18 @@ series_loop:
 		}
 
 		var cache_episodes []Episodes
-		var selected_series Episodes
+		series_metadata := GetSeriesData(url)
 	episode_loop:
 		for {
-			fmt.Printf("--- Series: %s ---\n\n", "B")
+			fmt.Printf("\n--- Series: %s ---\n\n", series_metadata.Name)
 
 			if len(cache_episodes) > 0 {
 				for i := range len(cache_episodes) {
-					selected_series = cache_episodes[i]
-					fmt.Printf(" [%d] %s\n", selected_series.Number, selected_series.JapaneseTitle)
+					eps := cache_episodes[i]
+					fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
 				}
 			} else {
-				cache_episodes = GetEpisodes(url)
+				cache_episodes = GetEpisodes(series_metadata.AnimeID)
 				for i := range len(cache_episodes) {
 					eps := cache_episodes[i]
 					fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
@@ -505,17 +560,45 @@ series_loop:
 					continue
 				} else {
 					display_title := fmt.Sprintf("[Ep. %d] %s (%s)", selected_ep.Number, selected_ep.JapaneseTitle, selected_server.Name)
+					header_fields := []string{
+						fmt.Sprintf("Referer: %s", stream_data.Referer),
+						fmt.Sprintf("User-Agent: %s", stream_data.UserAgent),
+						fmt.Sprintf("Origin: %s", "https://megacloud.blog"),
+					}
+					fullHeaders := strings.Join(header_fields, ",")
+
 					mpv_commands := []string{
-						"mpv.exe",
 						stream_data.Url,
-						fmt.Sprintf("--referrer=%s", stream_data.Referer),
-						fmt.Sprintf("--user-agent=%s", stream_data.UserAgent),
 						"--ytdl-format=bestvideo+bestaudio/best",
+						fmt.Sprintf("--http-header-fields=%s", fullHeaders),
 						fmt.Sprintf("--title=%s", display_title),
 						"--script-opts=osc-title=${title}",
 					}
 
-					PlayMpv(mpv_commands)
+					chapter_filename := CreateChapters(stream_data)
+					if chapter_filename != "" {
+						mpv_commands = append(mpv_commands, fmt.Sprintf("--chapters-file=%s", chapter_filename))
+					}
+
+					if stream_data.Tracks[0].File != "" {
+						for i := range stream_data.Tracks {
+							ins := stream_data.Tracks[i]
+							mpv_commands = append(mpv_commands, fmt.Sprintf("--sub-file=%s", ins.File))
+						}
+					}
+
+					mpv_commands = append(mpv_commands, "--v")
+
+					// fmt.Println(stream_data.Url)
+					// fmt.Println(stream_data.Referer)
+					// fmt.Println(mpv_commands)
+
+					callback := PlayMpv(mpv_commands)
+					if callback == 0 {
+						break server_loop
+					} else {
+						continue
+					}
 				}
 			}
 		}
