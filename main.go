@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"hianime-mpv-go/cache"
 	"hianime-mpv-go/jimaku"
 
 	"log"
@@ -101,13 +102,15 @@ func GetSeriesData(series_url string) SeriesData {
 		log.Fatal(err)
 	}
 
-	// series_html, err := doc.Html()
-	// os.WriteFile("a.html", []byte(series_html), 0644)
+	series_html, err := doc.Html()
+	os.WriteFile("a.html", []byte(series_html), 0644)
 
-	series_title := doc.Find("h2.film-name")
-	jname, exists := series_title.Attr("data-jname")
+	header := doc.Find("h2.film-name")
+
+	// Check parent first, IF NOT found, check child ("a")
+	jname, exists := header.Attr("data-jname")
 	if !exists {
-		fmt.Println("Couldn't found japanese title.")
+		jname, exists = header.Find("a").Attr("data-jname")
 	}
 
 	syncData := doc.Find("#syncData")
@@ -116,7 +119,7 @@ func GetSeriesData(series_url string) SeriesData {
 	var data SeriesData
 	json.Unmarshal([]byte(rawJson), &data)
 
-	data.EnglishName = series_title.Text()
+	data.EnglishName = header.Text()
 	data.JapaneseName = jname
 
 	return data
@@ -184,6 +187,8 @@ func GetEpisodes(animeId string) []Episodes {
 
 	return episodes
 }
+
+//TODO: Refactor all function into modular.
 
 func GetEpisodeServerId(episode_id int) []ServerList {
 	servers_url := fmt.Sprintf("%s/ajax/v2/episode/servers?episodeId=%d", BaseUrl, episode_id)
@@ -371,6 +376,7 @@ func ExtractMegacloud(iframe_url string) StreamData {
 
 	map_struct := StreamData{}
 
+	//  NOTE: Still can't play server 'HD-3' (url=douvid.xyz), because it was returning EXT encrypted, and impossible for mpv to play.
 	if !source_json.Encrypted || strings.Contains(source_json.Sources[0].File, ".m3u8") {
 		map_struct = StreamData{
 			Url:       source_json.Sources[0].File,
@@ -388,6 +394,7 @@ func ExtractMegacloud(iframe_url string) StreamData {
 	return map_struct
 }
 
+// NOTE: For intro and outro in mpv so user can know the timestamps.
 func CreateChapters(data StreamData) string {
 	if data.Intro.Start < 0 && data.Intro.End < 0 {
 		return ""
@@ -432,7 +439,7 @@ func PlayMpv(mpv_commands []string) int {
 		fmt.Println("Failed to put stdout: " + err.Error())
 	}
 
-	fmt.Println("--> Executing mpv commands...")
+	fmt.Println("\n--> Executing mpv commands...")
 
 	if err := cmd.Start(); err != nil {
 		fmt.Println("Error while running mpv: " + err.Error())
@@ -445,6 +452,7 @@ func PlayMpv(mpv_commands []string) int {
 		return_value = 0
 	})
 
+	var flag bool
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -452,30 +460,45 @@ func PlayMpv(mpv_commands []string) int {
 
 		if strings.Contains(line, "(+) Video --vid= ") || strings.Contains(line, "h264") {
 			timer.Stop()
-			fmt.Println("\nStream is valid. Opening mpv")
+			if !flag {
+				fmt.Println("\nStream is valid. Opening mpv")
+				flag = true
+			}
 			return_value = 1
-			break
 		} else if strings.Contains(line, "Opening failed") || strings.Contains(line, "HTTP error") {
 			fmt.Println("Failed to stream. Potentially dead link...")
 			return_value = 0
+			timer.Stop()
 			cmd.Process.Kill()
 			break
 		}
 	}
 
 	if err := cmd.Wait(); err != nil {
-		fmt.Println("\nExecute failed.")
 	}
 
 	return return_value
 }
 
 func main() {
-	url := "https://hianime.to/planetes-210"
+	var url string
 	scanner := bufio.NewScanner(os.Stdin)
+	history, err := cache.LoadHistory()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 series_loop:
 	for {
+		if len(history) > 0 {
+			fmt.Printf("\n--- Recent History ---\n\n")
+			for i := range history {
+				fmt.Printf(" [%d] %s\n", i+1, history[i].JapaneseName)
+			}
+
+		} else {
+			fmt.Printf("\n--- No recent history found ---\n\n")
+		}
 		fmt.Print("\nPaste hianime url to fetch: ")
 		scanner.Scan()
 
@@ -484,14 +507,41 @@ series_loop:
 			break series_loop
 		}
 
+		var history_select cache.History
+		var series_metadata SeriesData
+
 		if strings.Contains(series_input, "hianime.to") {
 			url = series_input
-		} else if series_input == "" {
-			continue
+			series_metadata = GetSeriesData(url)
+			new_data := cache.History{
+				Url:          series_metadata.SeriesUrl,
+				JapaneseName: series_metadata.JapaneseName,
+				EnglishName:  series_metadata.EnglishName,
+				AnilistID:    series_metadata.AnilistID,
+				LastEpisode:  1,
+			}
+			history_select = new_data
+
+			history = cache.UpdateHistory(history, new_data)
+			cache.SaveHistory(history)
+		} else {
+			int_series, err := strconv.Atoi(series_input)
+			if err != nil {
+				fmt.Println("Failed to convert to integer. Input number or paste url")
+				continue
+			}
+
+			history_select = history[int_series-1]
+			url = history_select.Url
+
+			series_metadata = GetSeriesData(url)
+
+			history = cache.UpdateHistory(history, history_select)
+			cache.SaveHistory(history)
 		}
 
 		var cache_episodes []Episodes
-		series_metadata := GetSeriesData(url)
+
 	episode_loop:
 		for {
 			fmt.Printf("\n--- Series: %s ---\n\n", series_metadata.JapaneseName)
@@ -499,13 +549,21 @@ series_loop:
 			if len(cache_episodes) > 0 {
 				for i := range len(cache_episodes) {
 					eps := cache_episodes[i]
-					fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
+					if eps.Number == history_select.LastEpisode {
+						fmt.Printf(" [%d] %s <---\n", eps.Number, eps.JapaneseTitle)
+					} else {
+						fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
+					}
 				}
 			} else {
 				cache_episodes = GetEpisodes(series_metadata.AnimeID)
 				for i := range len(cache_episodes) {
 					eps := cache_episodes[i]
-					fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
+					if eps.Number == history_select.LastEpisode {
+						fmt.Printf(" [%d] %s <---\n", eps.Number, eps.JapaneseTitle)
+					} else {
+						fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
+					}
 				}
 			}
 
@@ -530,6 +588,11 @@ series_loop:
 			if int_input > 0 && int_input <= len(cache_episodes) {
 				selected_ep = cache_episodes[int_input-1]
 				servers = GetEpisodeServerId(selected_ep.Id)
+
+				history_select.LastEpisode = int_input
+
+				history = cache.UpdateHistory(history, history_select)
+				cache.SaveHistory(history)
 			} else {
 				fmt.Println("Number is invalid.")
 			}
@@ -602,16 +665,8 @@ series_loop:
 						mpv_commands = append(mpv_commands, fmt.Sprintf("--chapters-file=%s", chapter_filename))
 					}
 
-					if stream_data.Tracks[0].File != "" {
-						for i := range stream_data.Tracks {
-							ins := stream_data.Tracks[i]
-							mpv_commands = append(mpv_commands, fmt.Sprintf("--sub-file=%s", ins.File))
-						}
-					}
+					// mpv_commands = append(mpv_commands, "--v")
 
-					mpv_commands = append(mpv_commands, "--v")
-
-					// fmt.Println(mpv_commands)
 					jimaku_list, err := jimaku.GetSubsJimaku(series_metadata.AnilistID, selected_ep.Number)
 					if err != nil {
 						fmt.Printf("Failed to get subs from jimaku: %s", err)
@@ -620,10 +675,15 @@ series_loop:
 					if len(jimaku_list) > 0 {
 						for i := range jimaku_list {
 							mpv_commands = append(mpv_commands, fmt.Sprintf("--sub-file=%s", jimaku_list[i]))
-							fmt.Printf("Adding %s to the mpv...\n", jimaku_list[i])
 						}
 					}
 
+					if stream_data.Tracks[0].File != "" {
+						for i := range stream_data.Tracks {
+							ins := stream_data.Tracks[i]
+							mpv_commands = append(mpv_commands, fmt.Sprintf("--sub-file=%s", ins.File))
+						}
+					}
 					callback := PlayMpv(mpv_commands)
 					if callback == 1 {
 						break server_loop

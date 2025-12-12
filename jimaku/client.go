@@ -105,6 +105,7 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 	if JimakuApi == "" {
 		return []string{}, fmt.Errorf("No Jimaku API found in the enviroment variable.")
 	}
+
 	url_search := fmt.Sprintf("%s/api/entries/search", JimakuBaseUrl)
 
 	req, err := http.NewRequest("GET", url_search, nil)
@@ -120,6 +121,9 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 	req.URL.RawQuery = query.Encode()
 
 	res, err := http.DefaultClient.Do(req)
+
+	fmt.Println("\n--> JimakuApiKey found. Querying into the Jimaku api....")
+
 	if err != nil {
 		return []string{}, fmt.Errorf("Failed to request query: %w", err)
 	}
@@ -139,6 +143,7 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 		return []string{}, fmt.Errorf("Couldn't found series id in jimaku. AniId: %s", anilistID)
 	}
 
+	fmt.Println("--> Jimaku id for series found. Requesting files list...")
 	files_list, err := getFiles(int(data[0].ID), episodeNum)
 	if err != nil {
 		return []string{}, fmt.Errorf("Failed when getting files: %w", err)
@@ -153,10 +158,11 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 	series_dir := filepath.Join(default_path, data[0].RomajiName)
 
 	if err := os.MkdirAll(series_dir, 0755); err != nil {
-		log.Fatalf("Failed to create series directory: %v", err)
+		return []string{}, fmt.Errorf("Failed to create series directory: %w", err)
 	}
 
 	var name_list []string
+	fmt.Println("--> Files list received. Downloading subtitle....")
 
 	for i := range files_list {
 		ins := files_list[i]
@@ -171,24 +177,21 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 
 		rawFilename := path.Base(ins.Url)
 
-		// 2. Decode it to readable Japanese (e.g., "プラネテス.ass")
 		filename, err := url.QueryUnescape(rawFilename)
 		if err != nil {
-			// If decoding fails, fall back to the raw name
 			filename = rawFilename
 		}
 
 		fullPath := filepath.Join(series_dir, filename)
 
 		if _, err := os.Stat(fullPath); err == nil {
-			fmt.Printf("File already exists, skipping: %s\n", fullPath)
+			fmt.Printf("	File already exists, skipping: %s\n", fullPath)
 			name_list = append(name_list, fullPath)
 			continue
 		} else if os.IsNotExist(err) {
-			fmt.Printf("File not found, downloading: %s\n", filename)
+			fmt.Printf("	Downloading: %s\n", filename)
 		} else {
 			fmt.Printf("Error accessing path %s: %v\n", fullPath, err)
-			// fmt.Printf("Downloading %s...\n", filename)
 		}
 
 		downloadedPath, err := downloadFile(ins.Url, fullPath)
@@ -198,7 +201,10 @@ func GetSubsJimaku(anilistID string, episodeNum int) ([]string, error) {
 		}
 
 		name_list = append(name_list, downloadedPath)
-		fmt.Printf("Download successfully: %s\n", fullPath)
+	}
+
+	if len(name_list) > 0 {
+		fmt.Printf("%d subtitle downloaded.\n", len(name_list))
 	}
 
 	return name_list, nil
