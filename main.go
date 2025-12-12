@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"hianime-mpv-go/cache"
 	"hianime-mpv-go/jimaku"
+	"hianime-mpv-go/state"
 
 	"log"
 	"net/http"
@@ -483,7 +483,7 @@ func PlayMpv(mpv_commands []string) int {
 func main() {
 	var url string
 	scanner := bufio.NewScanner(os.Stdin)
-	history, err := cache.LoadHistory()
+	history, err := state.LoadHistory()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -507,13 +507,13 @@ series_loop:
 			break series_loop
 		}
 
-		var history_select cache.History
+		var history_select state.History
 		var series_metadata SeriesData
 
 		if strings.Contains(series_input, "hianime.to") {
 			url = series_input
 			series_metadata = GetSeriesData(url)
-			new_data := cache.History{
+			new_data := state.History{
 				Url:          series_metadata.SeriesUrl,
 				JapaneseName: series_metadata.JapaneseName,
 				EnglishName:  series_metadata.EnglishName,
@@ -522,8 +522,8 @@ series_loop:
 			}
 			history_select = new_data
 
-			history = cache.UpdateHistory(history, new_data)
-			cache.SaveHistory(history)
+			history = state.UpdateHistory(history, new_data)
+			state.SaveHistory(history)
 		} else {
 			int_series, err := strconv.Atoi(series_input)
 			if err != nil {
@@ -536,8 +536,8 @@ series_loop:
 
 			series_metadata = GetSeriesData(url)
 
-			history = cache.UpdateHistory(history, history_select)
-			cache.SaveHistory(history)
+			history = state.UpdateHistory(history, history_select)
+			state.SaveHistory(history)
 		}
 
 		var cache_episodes []Episodes
@@ -591,8 +591,8 @@ series_loop:
 
 				history_select.LastEpisode = int_input
 
-				history = cache.UpdateHistory(history, history_select)
-				cache.SaveHistory(history)
+				history = state.UpdateHistory(history, history_select)
+				state.SaveHistory(history)
 			} else {
 				fmt.Println("Number is invalid.")
 			}

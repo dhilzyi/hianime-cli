@@ -1,4 +1,4 @@
-package cache
+package state
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func getDefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Failed to get executable path: %w", err)
 	}
-	defaultPath := filepath.Join(exe_path, "cache")
+	defaultPath := filepath.Join(exe_path, "state")
 
 	if err = os.MkdirAll(defaultPath, 0755); err != nil {
 		return "", fmt.Errorf("Failed to find/create directory: %w", err)
