@@ -164,7 +164,7 @@ func GetEpisodeServerId(episode_id int) []ServerList {
 	return servers_list
 }
 
-func GetIframe(server_id int) (StreamData, error) {
+func GetStreamData(server_id int) (StreamData, error) {
 	server_url := fmt.Sprintf("%s/ajax/v2/episode/sources?id=%d", BaseUrl, server_id)
 
 	resp, err := http.Get(server_url)

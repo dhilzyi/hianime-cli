@@ -33,7 +33,7 @@ type FileElement struct {
 var UserAgent = ""
 var JimakuBaseUrl string = "https://jimaku.cc"
 
-// Set your JimakuAPI to environment table or just put it directly in this variable as a string.
+// Set your JimakuAPI to environment variable or just put it directly in this variable as a string.
 var JimakuApi string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
 
 func downloadFile(url string, file_path string) (string, error) {
@@ -153,7 +153,6 @@ func GetSubsJimaku(series_data hianime.SeriesData, episodeNum int) ([]string, er
 		return []string{}, fmt.Errorf("Nothing found.")
 	}
 
-	fmt.Println("--> Jimaku id for series found. Requesting files list...")
 	files_list, err := getFiles(int(data[0].ID), episodeNum)
 	if err != nil {
 		return []string{}, fmt.Errorf("Failed when getting files: %w", err)
@@ -198,7 +197,7 @@ func GetSubsJimaku(series_data hianime.SeriesData, episodeNum int) ([]string, er
 		fullPath := filepath.Join(series_dir, filename)
 
 		if _, err := os.Stat(fullPath); err == nil {
-			fmt.Printf("	File already exists, skipping: %s\n", fullPath)
+			fmt.Printf("	File already exists, skip download: %s\n", fullPath)
 			name_list = append(name_list, fullPath)
 			continue
 		} else if os.IsNotExist(err) {

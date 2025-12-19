@@ -8,12 +8,19 @@ import (
 )
 
 type History struct {
-	Url          string `json:"url"`
-	JapaneseName string `json:"jp_name"`
-	EnglishName  string `json:"en_name"`
-	LastEpisode  int    `json:"last_episode"`
-	AnilistID    string `json:"anilist_id"`
-	SubDelay     int64  `json:"sub_delay"`
+	Url          string                  `json:"url"`
+	JapaneseName string                  `json:"jp_name"`
+	EnglishName  string                  `json:"en_name"`
+	LastEpisode  int                     `json:"last_episode"`
+	AnilistID    string                  `json:"anilist_id"`
+	SubDelay     float64                 `json:"sub_delay"`
+	Volume       int                     `json:"volume"`
+	Episode      map[int]EpisodeProgress `json:"episode_history"`
+}
+
+type EpisodeProgress struct {
+	Position float64 `json:"position"`
+	Duration float64 `json:"duration"`
 }
 
 func getDefaultPath() (string, error) {
