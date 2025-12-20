@@ -162,11 +162,9 @@ func PlayAndroidMpv(mpvCommands []string) {
 		fmt.Println("Failed to put stdout: " + err.Error())
 	}
 
+	fmt.Println("\n--> Executing android mpv commands...")
 	if err := cmd.Start(); err != nil {
 		fmt.Println("Error while running mpv: " + err.Error())
-	}
-
-	if err := cmd.Wait(); err != nil {
 	}
 
 	scanner := bufio.NewScanner(stdout)
@@ -174,6 +172,10 @@ func PlayAndroidMpv(mpvCommands []string) {
 		line := scanner.Text()
 		fmt.Println(line)
 	}
+
+	if err := cmd.Wait(); err != nil {
+	}
+
 }
 
 // TODO: Support other platforms.
