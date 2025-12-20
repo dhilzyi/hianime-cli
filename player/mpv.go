@@ -101,7 +101,7 @@ func BuildAndroidCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 		"-n",
 		"is.xyz.mpv/.MPVActivity",
 		"--es",
-		fmt.Sprintf("--http-header-fields=%s", fullHeaders),
+		fmt.Sprintf("http-header-fields=%s", fullHeaders),
 	}
 
 	jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
@@ -111,7 +111,7 @@ func BuildAndroidCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	}
 	if len(jimakuList) > 0 {
 		for i := range jimakuList {
-			mpvCommands = append(mpvCommands, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
+			mpvCommands = append(mpvCommands, "es", "su%s", jimakuList[i])
 		}
 	}
 
@@ -154,28 +154,22 @@ func CreateChapters(data hianime.StreamData) string {
 
 func PlayAndroidMpv(mpvCommands []string) {
 	cmdName := "am"
-
 	cmd := exec.Command(cmdName, mpvCommands...)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println("Failed to put stdout: " + err.Error())
-	}
+	output, err := cmd.CombinedOutput()
 
 	fmt.Println("\n--> Executing android mpv commands...")
+	fmt.Println(string(output))
+
 	if err := cmd.Start(); err != nil {
 		fmt.Println("Error while running mpv: " + err.Error())
 	}
 
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		line := scanner.Text()
-		fmt.Println(line)
+	if err != nil {
+		fmt.Println("Error launching:", err)
+	} else {
+		fmt.Println("Launch command sent!")
 	}
-
-	if err := cmd.Wait(); err != nil {
-	}
-
 }
 
 // TODO: Support other platforms.
