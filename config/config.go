@@ -9,8 +9,9 @@ import (
 var FileName string = "config.json"
 
 type Settings struct {
-	JimakuEnable     bool `json:"jimaku_enable"`
-	AutoSelectServer bool `json:"auto_selectserver"`
+	JimakuEnable     bool   `json:"jimaku_enable"`
+	AutoSelectServer bool   `json:"auto_selectserver"`
+	MpvPath          string `json:"mpv_path"`
 }
 
 func LoadConfig() (Settings, error) {
@@ -29,6 +30,12 @@ func LoadConfig() (Settings, error) {
 
 	} else if os.IsNotExist(err) {
 		_, err := os.Create(FileName)
+
+		config_session = Settings{
+			JimakuEnable:     true,
+			AutoSelectServer: true,
+			MpvPath:          "",
+		}
 
 		SaveConfig(config_session)
 

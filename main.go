@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -13,7 +12,10 @@ import (
 	"hianime-mpv-go/hianime"
 	"hianime-mpv-go/player"
 	"hianime-mpv-go/state"
+	"hianime-mpv-go/ui"
 )
+
+var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}
 
 func main() {
 	var url string
@@ -26,7 +28,6 @@ func main() {
 	if err != nil {
 		fmt.Println("Fail to load config file: " + err.Error())
 	}
-	fmt.Printf("User run in platform: %s\n", runtime.GOOS)
 
 series_loop:
 	for {
@@ -81,32 +82,17 @@ series_loop:
 			state.SaveHistory(history)
 		}
 
-		var cache_episodes []hianime.Episodes
-
 	episode_loop:
 		for {
 			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.JapaneseName)
 
-			if len(cache_episodes) > 0 {
-				for i := range len(cache_episodes) {
-					eps := cache_episodes[i]
-					if eps.Number == historySelect.LastEpisode {
-						fmt.Printf(" [%d] %s <---\n", eps.Number, eps.JapaneseTitle)
-					} else {
-						fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
-					}
-				}
-			} else {
-				cache_episodes = hianime.GetEpisodes(seriesMetadata.AnimeID)
-				for i := range len(cache_episodes) {
-					eps := cache_episodes[i]
-					if eps.Number == historySelect.LastEpisode {
-						fmt.Printf(" [%d] %s <---\n", eps.Number, eps.JapaneseTitle)
-					} else {
-						fmt.Printf(" [%d] %s\n", eps.Number, eps.JapaneseTitle)
-					}
-				}
+			episodeCache, exists := cacheEpisodes[seriesMetadata.AnimeID]
+			if !exists {
+				episodeCache = hianime.GetEpisodes(seriesMetadata.AnimeID)
+				cacheEpisodes[seriesMetadata.AnimeID] = episodeCache
 			}
+
+			ui.PrintEpisodes(episodeCache, historySelect)
 
 			fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
 			scanner.Scan()
@@ -126,8 +112,8 @@ series_loop:
 
 			var servers []hianime.ServerList
 			var selectedEpisode hianime.Episodes
-			if int_input > 0 && int_input <= len(cache_episodes) {
-				selectedEpisode = cache_episodes[int_input-1]
+			if int_input > 0 && int_input <= len(episodeCache) {
+				selectedEpisode = episodeCache[int_input-1]
 				servers = hianime.GetEpisodeServerId(selectedEpisode.Id)
 
 				historySelect.LastEpisode = int_input
@@ -206,16 +192,12 @@ series_loop:
 					continue
 				}
 
-				var success bool
-				var subDelay, lastPos, totalDur float64
-				if runtime.GOOS == "android" {
-					androidCommands := player.BuildAndroidCommands(seriesMetadata, selectedEpisode, selectedServer, streamData)
-					player.PlayAndroidMpv(androidCommands)
+				// get mpv path automatically according user platforms.
+				binName := player.GetMpvBinary(configSession.MpvPath)
+				desktopCommands := player.BuildDesktopCommands(seriesMetadata, selectedEpisode, selectedServer, streamData, historySelect)
 
-				} else {
-					desktopCommands := player.BuildDesktopCommands(seriesMetadata, selectedEpisode, selectedServer, streamData, historySelect)
-					success, subDelay, lastPos, totalDur = player.PlayMpv(desktopCommands)
-				}
+				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands)
+
 				if success {
 					cleanDelay := math.Round(subDelay*10) / 10
 					historySelect.SubDelay = cleanDelay
@@ -229,14 +211,12 @@ series_loop:
 						Duration: totalDur,
 					}
 
-					fmt.Println(historySelect)
-
 					history = state.UpdateHistory(history, historySelect)
 					state.SaveHistory(history)
 
 					break server_loop
 				} else {
-					continue
+					break
 				}
 			}
 		}

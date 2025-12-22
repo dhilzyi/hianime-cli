@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -81,43 +82,6 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	return args
 }
 
-func BuildAndroidCommands(metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData) []string {
-
-	headerFields := []string{
-		fmt.Sprintf("Referer: %s", streamingData.Referer),
-		fmt.Sprintf("User-Agent: %s", streamingData.UserAgent),
-		fmt.Sprintf("Origin: %s", "https://megacloud.blog"),
-	}
-
-	fullHeaders := strings.Join(headerFields, ",")
-	mpvCommands := []string{
-		"start",
-		"--user",
-		"0",
-		"-a",
-		"android.intent.action.VIEW",
-		"-d",
-		streamingData.Url,
-		"-n",
-		"is.xyz.mpv/.MPVActivity",
-		"--es",
-		fmt.Sprintf("http-header-fields=%s", fullHeaders),
-	}
-
-	jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
-	if err != nil {
-		fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-		fmt.Printf("Skipping Jimaku\n")
-	}
-	if len(jimakuList) > 0 {
-		for i := range jimakuList {
-			mpvCommands = append(mpvCommands, "es", "su%s", jimakuList[i])
-		}
-	}
-
-	return mpvCommands
-}
-
 // NOTE: For intro and outro in mpv so user can know the timestamps and skip easily.
 func CreateChapters(data hianime.StreamData) string {
 
@@ -152,29 +116,10 @@ func CreateChapters(data hianime.StreamData) string {
 	return f.Name()
 }
 
-func PlayAndroidMpv(mpvCommands []string) {
-	cmdName := "am"
-	cmd := exec.Command(cmdName, mpvCommands...)
-
-	output, err := cmd.CombinedOutput()
-
-	fmt.Println("\n--> Executing android mpv commands...")
-	fmt.Println(string(output))
-
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error while running mpv: " + err.Error())
-	}
-
-	if err != nil {
-		fmt.Println("Error launching:", err)
-	} else {
-		fmt.Println("Launch command sent!")
-	}
-}
-
 // TODO: Support other platforms.
-func PlayMpv(mpv_commands []string) (bool, float64, float64, float64) {
-	cmdName := "mpv.exe"
+// Now it supports windows and linux automatically, without hardcoding the mpv path. I hope
+func PlayMpv(cmdMain string, mpv_commands []string) (bool, float64, float64, float64) {
+	cmdName := cmdMain
 
 	track_script := "player/track.lua"
 	mpv_commands = append(mpv_commands, "--script="+track_script)
@@ -266,4 +211,31 @@ func PlayMpv(mpv_commands []string) (bool, float64, float64, float64) {
 	}
 
 	return stream_started, subDelay, lastPos, totalDuration
+}
+
+func GetMpvBinary(configPath string) string {
+	if configPath != "" {
+		return configPath
+	}
+	if runtime.GOOS == "windows" {
+		return "mpv.exe"
+	}
+
+	if runtime.GOOS == "linux" {
+		if isWSL() {
+			return "mpv.exe"
+		}
+		return "mpv"
+	}
+
+	return "mpv"
+}
+
+func isWSL() bool {
+	data, err := os.ReadFile("/proc/version")
+	if err != nil {
+		return false
+	}
+	content := strings.ToLower(string(data))
+	return strings.Contains(content, "microsoft") || strings.Contains(content, "wsl")
 }
