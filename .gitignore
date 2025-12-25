@@ -6,6 +6,7 @@ notes.txt
 
 database.go
 hianime-mpv-go
+hianime-linux-amd64
 
 scripts
 state/history.json
