@@ -2,9 +2,11 @@ package player
 
 import (
 	"bufio"
+	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,6 +18,9 @@ import (
 	"hianime-mpv-go/state"
 	"hianime-mpv-go/ui"
 )
+
+//go:embed track.lua
+var TrackScript string
 
 func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History, configData config.Settings) []string {
 	// Building title display for mpv
@@ -41,15 +46,15 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	// last position if exist in history
 	episodeProgress, exist := historyData.Episode[episodeData.Number]
 	if exist {
-		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position-1))
+		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position))
 	}
 
 	// Chapter command
 	if streamingData.Intro.End > 0 && streamingData.Outro.Start > 0 {
-		chapter_filename := CreateChapters(streamingData, historyData, episodeData)
-		if chapter_filename != "" {
+		chapter_pathfile := CreateChapters(streamingData, historyData, episodeData)
+		if chapter_pathfile != "" {
 			fmt.Println("--> Adding chapters to mpv.")
-			args = append(args, fmt.Sprintf("--chapters-file=%s", chapter_filename))
+			args = append(args, fmt.Sprintf("--chapters-file=%s", chapter_pathfile))
 		}
 	} else {
 		fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
@@ -86,8 +91,11 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	}
 
 	// track script & debug command
-	trackScript := "player/track.lua"
-	args = append(args, "--script="+trackScript)
+	scriptLua, err := EnsureTrackScript("track.lua")
+	if err == nil {
+		args = append(args, "--script="+scriptLua)
+	}
+
 	if config.DebugMode {
 		args = append(args, "--v")
 	}
@@ -257,4 +265,28 @@ func isWSL() bool {
 	}
 	content := strings.ToLower(string(data))
 	return strings.Contains(content, "microsoft") || strings.Contains(content, "wsl")
+}
+
+func EnsureTrackScript(pathFile string) (string, error) {
+	dir := "scripts"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("Failed to create series directory: %w", err)
+	}
+
+	scriptPath := filepath.Join(dir, pathFile)
+	if _, err := os.Stat(scriptPath); err == nil {
+		fmt.Println("--> Lua script exist")
+
+	} else if os.IsNotExist(err) {
+
+		errA := os.WriteFile(scriptPath, []byte(TrackScript), 0644)
+		if errA != nil {
+			return "", fmt.Errorf("Failed to write script :%w", errA)
+		}
+
+	} else {
+		return "", fmt.Errorf("Error accessing path %s: %w\n", pathFile, err)
+	}
+
+	return scriptPath, nil
 }

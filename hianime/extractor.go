@@ -47,8 +47,8 @@ func GetSeriesData(series_url string) SeriesData {
 	var data SeriesData
 	json.Unmarshal([]byte(rawJson), &data)
 
-	data.EnglishName = header.Text()
-	data.JapaneseName = jname
+	data.EnglishName = strings.TrimSpace(header.Text())
+	data.JapaneseName = strings.TrimSpace(jname)
 
 	return data
 }

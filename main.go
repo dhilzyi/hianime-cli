@@ -59,8 +59,8 @@ series_loop:
 			seriesMetadata = hianime.GetSeriesData(url)
 			new_history := state.History{
 				Url:          seriesMetadata.SeriesUrl,
-				JapaneseName: strings.TrimSpace(seriesMetadata.JapaneseName),
-				EnglishName:  strings.TrimSpace(seriesMetadata.EnglishName),
+				JapaneseName: seriesMetadata.JapaneseName,
+				EnglishName:  seriesMetadata.EnglishName,
 				AnilistID:    seriesMetadata.AnilistID,
 				LastEpisode:  1,
 				Episode:      make(map[int]state.EpisodeProgress),
