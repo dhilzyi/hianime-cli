@@ -24,11 +24,11 @@ type EpisodeProgress struct {
 }
 
 func getDefaultPath() (string, error) {
-	exe_path, err := os.Getwd()
+	exePath, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("Failed to get executable path: %w", err)
 	}
-	defaultPath := filepath.Join(exe_path, "state")
+	defaultPath := filepath.Join(exePath, "state")
 
 	if err = os.MkdirAll(defaultPath, 0755); err != nil {
 		return "", fmt.Errorf("Failed to find/create directory: %w", err)
@@ -48,13 +48,13 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 		}
 	}
 
-	new_history := append([]History{targetData}, cleaned...)
+	newHistory := append([]History{targetData}, cleaned...)
 
-	if len(new_history) > 10 {
-		new_history = new_history[:10]
+	if len(newHistory) > 10 {
+		newHistory = newHistory[:10]
 	}
 
-	return new_history
+	return newHistory
 }
 
 func SaveHistory(rawData []History) error {
@@ -76,35 +76,35 @@ func SaveHistory(rawData []History) error {
 }
 
 func LoadHistory() ([]History, error) {
-	var history_session []History
+	var historySession []History
 
 	historyPath, err := getDefaultPath()
 	if err != nil {
-		return history_session, fmt.Errorf("Couldn't find the path: %w", err)
+		return historySession, fmt.Errorf("Couldn't find the path: %w", err)
 	}
 
 	if _, err := os.Stat(historyPath); err == nil {
 		fmt.Println("File history load success.")
 		jsonData, err := os.ReadFile(historyPath)
 		if err != nil {
-			return history_session, fmt.Errorf("Failed to open json files: %w", err)
+			return historySession, fmt.Errorf("Failed to open json files: %w", err)
 		}
 
-		if err = json.Unmarshal(jsonData, &history_session); err != nil {
-			return history_session, fmt.Errorf("Failed to convert to struct: %w", err)
+		if err = json.Unmarshal(jsonData, &historySession); err != nil {
+			return historySession, fmt.Errorf("Failed to convert to struct: %w", err)
 		}
 
 	} else if os.IsNotExist(err) {
 		_, err := os.Create(historyPath)
 
-		SaveHistory(history_session)
+		SaveHistory(historySession)
 
 		if err != nil {
-			return history_session, fmt.Errorf("Failed to create history json file: %w", err)
+			return historySession, fmt.Errorf("Failed to create history json file: %w", err)
 		}
 	} else {
-		return history_session, fmt.Errorf("Error accessing path %s: %w\n", historyPath, err)
+		return historySession, fmt.Errorf("Error accessing path %s: %w\n", historyPath, err)
 	}
 
-	return history_session, nil
+	return historySession, nil
 }

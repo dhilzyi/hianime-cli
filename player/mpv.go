@@ -51,10 +51,10 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 
 	// Chapter command
 	if streamingData.Intro.End > 0 || streamingData.Outro.Start > 0 {
-		chapter_pathfile := CreateChapters(streamingData, historyData, episodeData)
-		if chapter_pathfile != "" {
+		chapterPathFile := CreateChapters(streamingData, historyData, episodeData)
+		if chapterPathFile != "" {
 			fmt.Println("--> Adding chapters to mpv.")
-			args = append(args, fmt.Sprintf("--chapters-file=%s", chapter_pathfile))
+			args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
 		}
 	} else {
 		fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
@@ -139,16 +139,16 @@ func CreateChapters(data hianime.StreamData, historyData state.History, episodeD
 	if data.Outro.Start > 0 && data.Outro.End > 0 {
 		writePart(data.Intro.End, data.Outro.Start, "Part B")
 		writePart(data.Outro.Start, data.Outro.End, "Outro")
-	}
 
-	// Using exact duration from history if exist
-	episodeProgress, exist := historyData.Episode[episodeData.Number]
-	if exist {
-		ui.DebugPrint("[CHAPTER]", "History duration exist")
-		writePart(data.Outro.End, int(episodeProgress.Duration), "Part C")
-	} else {
-		ui.DebugPrint("[CHAPTER]", "History duration not exist")
-		writePart(data.Outro.End, 9999999, "Part C")
+		// Using exact duration from history if exist
+		episodeProgress, exist := historyData.Episode[episodeData.Number]
+		if exist {
+			ui.DebugPrint("[CHAPTER]", "History duration exist")
+			writePart(data.Outro.End, int(episodeProgress.Duration), "Part C")
+		} else {
+			ui.DebugPrint("[CHAPTER]", "History duration not exist")
+			writePart(data.Outro.End, 9999999, "Part C")
+		}
 	}
 
 	f.WriteString(contents)
@@ -159,7 +159,7 @@ func CreateChapters(data hianime.StreamData, historyData state.History, episodeD
 func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	cmdName := cmdMain
 
-	var stream_started bool
+	var streamStarted bool
 	var subDelay float64
 	var lastPos float64
 	var totalDuration float64
@@ -181,7 +181,7 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	timer := time.AfterFunc(20*time.Second, func() {
 		fmt.Println("\n--> MPV is timeout. Killing process...")
 		cmd.Process.Kill()
-		stream_started = false
+		streamStarted = false
 	})
 
 	var flag bool
@@ -197,11 +197,11 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 				flag = true
 			}
 
-			stream_started = true
+			streamStarted = true
 		} else if strings.Contains(line, "Opening failed") || strings.Contains(line, "HTTP error") {
 			fmt.Println("Failed to stream. Potentially dead link...")
 
-			stream_started = false
+			streamStarted = false
 			timer.Stop()
 			cmd.Process.Kill()
 
@@ -246,7 +246,7 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	if err := cmd.Wait(); err != nil {
 	}
 
-	return stream_started, subDelay, lastPos, totalDuration
+	return streamStarted, subDelay, lastPos, totalDuration
 }
 
 func GetMpvBinary(configPath string) string {

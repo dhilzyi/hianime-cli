@@ -54,38 +54,38 @@ func GetSeriesData(series_url string) SeriesData {
 }
 
 func GetEpisodes(animeId string) []Episodes {
-	api_url := fmt.Sprintf("%s/ajax/v2/episode/list/%s", BaseUrl, animeId)
+	apiUrl := fmt.Sprintf("%s/ajax/v2/episode/list/%s", BaseUrl, animeId)
 
-	api_resp, err := http.Get(api_url)
+	apiResp, err := http.Get(apiUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer api_resp.Body.Close()
-	var json_resp AjaxResponse
-	if err := json.NewDecoder(api_resp.Body).Decode(&json_resp); err != nil {
+	defer apiResp.Body.Close()
+	var jsonResp AjaxResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&jsonResp); err != nil {
 		panic("Failed to decode JSON: " + err.Error())
 	}
 
-	api_doc, err := goquery.NewDocumentFromReader(strings.NewReader(json_resp.Html))
+	apiDoc, err := goquery.NewDocumentFromReader(strings.NewReader(jsonResp.Html))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var episodes []Episodes
 
-	api_doc.Find("a.ep-item").Each(func(i int, s *goquery.Selection) {
+	apiDoc.Find("a.ep-item").Each(func(i int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			fmt.Println("Couldn't found href.")
 		}
 
-		data_id, exists := s.Attr("data-id")
+		dataId, exists := s.Attr("data-id")
 		if !exists {
 			fmt.Println("Couldn't found data-id.")
 		}
 
-		id_int, err := strconv.Atoi(data_id)
+		id_int, err := strconv.Atoi(dataId)
 		if err != nil {
 			fmt.Print("Failed to convert to integer: " + err.Error())
 		}
@@ -99,58 +99,58 @@ func GetEpisodes(animeId string) []Episodes {
 			japaneseTitle = html.UnescapeString(rawJName)
 		}
 
-		data_structure := Episodes{
+		episodeMap := Episodes{
 			Number:        i + 1,
 			EnglishTitle:  englishTitle,
 			JapaneseTitle: japaneseTitle,
 			Url:           BaseUrl + html.UnescapeString(href),
 			Id:            id_int,
 		}
-		episodes = append(episodes, data_structure)
+		episodes = append(episodes, episodeMap)
 	})
 
-	// api_html, err := api_doc.Html()
+	// api_html, err := apiDoc.Html()
 	//
 	// os.WriteFile("onepiece.html", []byte(api_html), 0644)
 
 	return episodes
 }
 
-func GetEpisodeServerId(episode_id int) []ServerList {
-	servers_url := fmt.Sprintf("%s/ajax/v2/episode/servers?episodeId=%d", BaseUrl, episode_id)
+func GetEpisodeServerId(episodeId int) []ServerList {
+	serverUrl := fmt.Sprintf("%s/ajax/v2/episode/servers?episodeId=%d", BaseUrl, episodeId)
 
-	server_resp, err := http.Get(servers_url)
+	serverResp, err := http.Get(serverUrl)
 	if err != nil {
 		fmt.Println("Error while requesting server urls: " + err.Error())
 	}
-	defer server_resp.Body.Close()
+	defer serverResp.Body.Close()
 
-	var server_json AjaxResponse
-	if err := json.NewDecoder(server_resp.Body).Decode(&server_json); err != nil {
+	var serverJson AjaxResponse
+	if err := json.NewDecoder(serverResp.Body).Decode(&serverJson); err != nil {
 		fmt.Println("Error while converting to json: " + err.Error())
 	}
 
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(server_json.Html))
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(serverJson.Html))
 	if err != nil {
 		fmt.Println("Failed fecthing json to doc: ", err.Error())
 	}
 
-	var servers_list []ServerList
+	var serverLists []ServerList
 
 	doc.Find(".server-item").Each(func(i int, s *goquery.Selection) {
-		data_type, exists := s.Attr("data-type")
+		dataType, exists := s.Attr("data-type")
 		if !exists {
 			fmt.Println("Couldn't found 'data-type': " + err.Error())
 			return
 		}
-		data_id, exists := s.Attr("data-id")
+		dataId, exists := s.Attr("data-id")
 		if !exists {
 			fmt.Println("Couldn't found data-id: " + err.Error())
 			return
 		}
-		int_data_id, err := strconv.Atoi(data_id)
+		dataIdInt, err := strconv.Atoi(dataId)
 		if err != nil {
-			fmt.Println("Failed to convert 'data_id' to int: " + err.Error())
+			fmt.Println("Failed to convert 'dataId' to int: " + err.Error())
 			return
 		}
 
@@ -162,34 +162,34 @@ func GetEpisodeServerId(episode_id int) []ServerList {
 		}
 
 		instance := ServerList{
-			Type:   data_type,
+			Type:   dataType,
 			Name:   name,
-			DataId: int_data_id,
+			DataId: dataIdInt,
 		}
 
-		servers_list = append(servers_list, instance)
+		serverLists = append(serverLists, instance)
 	})
 
-	return servers_list
+	return serverLists
 }
 
-func GetStreamData(server_id int) (StreamData, error) {
-	server_url := fmt.Sprintf("%s/ajax/v2/episode/sources?id=%d", BaseUrl, server_id)
+func GetStreamData(serverId int) (StreamData, error) {
+	serverUrl := fmt.Sprintf("%s/ajax/v2/episode/sources?id=%d", BaseUrl, serverId)
 
-	resp, err := http.Get(server_url)
+	resp, err := http.Get(serverUrl)
 	if err != nil {
 		fmt.Println("Failed to connect with server url: " + err.Error())
 	}
 	defer resp.Body.Close()
 
-	var resp_json MegacloudUrl
-	if err := json.NewDecoder(resp.Body).Decode(&resp_json); err != nil {
+	var respJson MegacloudUrl
+	if err := json.NewDecoder(resp.Body).Decode(&respJson); err != nil {
 		fmt.Println("Failed to decode JSON: " + err.Error())
 	}
 
 	var url string
-	if resp_json.Type == "iframe" {
-		url = resp_json.Url
+	if respJson.Type == "iframe" {
+		url = respJson.Url
 	}
 
 	return ExtractMegacloud(url)
@@ -212,30 +212,30 @@ func GetNonce(html string) string {
 	return ""
 }
 
-func ExtractMegacloud(iframe_url string) (StreamData, error) {
-	parsed_url, err := url.Parse(iframe_url)
+func ExtractMegacloud(iframeUrl string) (StreamData, error) {
+	parsedUrl, err := url.Parse(iframeUrl)
 	if err != nil {
 		return StreamData{}, fmt.Errorf("Failed to parse url: %w", err)
 	}
-	default_domain := fmt.Sprintf("%s://%s/", parsed_url.Scheme, parsed_url.Host)
-	user_agent := "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
+	defaultDomain := fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host)
+	userAgent := "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36"
 
-	req, err := http.NewRequest("GET", iframe_url, nil)
+	req, err := http.NewRequest("GET", iframeUrl, nil)
 	if err != nil {
 		return StreamData{}, fmt.Errorf("Failed to fecth iframe link: %w", err)
 	}
 
-	req.Header.Set("User-Agent", user_agent)
-	req.Header.Set("Referer", default_domain)
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Referer", defaultDomain)
 
 	client := &http.Client{}
 
-	max_attempt := 3
-	var file_id string
+	maxAttempt := 3
+	var fileId string
 	var nonce string
 
-	for i := range max_attempt {
-		fmt.Printf("--> Attempt %d/%d to extract...\n", i+1, max_attempt)
+	for i := range maxAttempt {
+		fmt.Printf("--> Attempt %d/%d to extract...\n", i+1, maxAttempt)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -245,21 +245,21 @@ func ExtractMegacloud(iframe_url string) (StreamData, error) {
 
 		defer resp.Body.Close()
 
-		doc_megacloud, err := goquery.NewDocumentFromReader(resp.Body)
+		docMegacloud, err := goquery.NewDocumentFromReader(resp.Body)
 		if err != nil {
 			fmt.Println("Failed to create new document: " + err.Error())
 			continue
 		}
-		megacloud_player := doc_megacloud.Find("#megacloud-player")
-		id, exists := megacloud_player.Attr("data-id")
+		megacloudPlayer := docMegacloud.Find("#megacloud-player")
+		id, exists := megacloudPlayer.Attr("data-id")
 		if !exists {
-			fmt.Println("Couldn't found 'file_id'.")
+			fmt.Println("Couldn't found 'fileId'.")
 			continue
 		} else {
-			file_id = id
+			fileId = id
 		}
 
-		singleSelect := doc_megacloud.Selection
+		singleSelect := docMegacloud.Selection
 		outerHtml, _ := goquery.OuterHtml(singleSelect)
 
 		nonce = GetNonce(outerHtml)
@@ -273,8 +273,8 @@ func ExtractMegacloud(iframe_url string) (StreamData, error) {
 		}
 	}
 
-	sources_url := fmt.Sprintf("%sembed-2/v3/e-1/getSources?id=%s&_k=%s", default_domain, file_id, nonce)
-	source_req, err := http.NewRequest("GET", sources_url, nil)
+	sourcesUrl := fmt.Sprintf("%sembed-2/v3/e-1/getSources?id=%s&_k=%s", defaultDomain, fileId, nonce)
+	sourceReq, err := http.NewRequest("GET", sourcesUrl, nil)
 	if err != nil {
 		return StreamData{}, fmt.Errorf("Failed when requesting source url: %w", err)
 	}
@@ -282,44 +282,44 @@ func ExtractMegacloud(iframe_url string) (StreamData, error) {
 	extractor_headers := map[string]string{
 		"Accept":           "*/*",
 		"X-Requested-With": "application/json",
-		"Referer":          iframe_url,
-		"User-Agent":       user_agent,
+		"Referer":          iframeUrl,
+		"User-Agent":       userAgent,
 	}
 	for key, value := range extractor_headers {
-		source_req.Header.Set(key, value)
+		sourceReq.Header.Set(key, value)
 	}
 
-	source_resp, err := client.Do(source_req)
+	sourceResp, err := client.Do(sourceReq)
 	if err != nil {
 		return StreamData{}, fmt.Errorf("Failed to fetch source url: %w", err)
 	}
-	defer source_resp.Body.Close()
+	defer sourceResp.Body.Close()
 
-	var source_json Sources
+	var sourceJson Sources
 
-	// doc, err := goquery.NewDocumentFromReader(source_resp.Body)
+	// doc, err := goquery.NewDocumentFromReader(sourceResp.Body)
 	// fmt.Println(doc.Text())
 
-	if err := json.NewDecoder(source_resp.Body).Decode(&source_json); err != nil {
+	if err := json.NewDecoder(sourceResp.Body).Decode(&sourceJson); err != nil {
 		return StreamData{}, fmt.Errorf("Failed to convert to JSON: %w", err)
 	}
 
-	map_struct := StreamData{}
+	streamMap := StreamData{}
 
 	//  NOTE: Still can't play server 'HD-3' (url=douvid.xyz), because it was returning EXT encrypted, and impossible for mpv to play.
-	if !source_json.Encrypted || strings.Contains(source_json.Sources[0].File, ".m3u8") {
-		map_struct = StreamData{
-			Url:       source_json.Sources[0].File,
-			UserAgent: user_agent,
-			Referer:   default_domain,
-			Origin:    default_domain,
-			Tracks:    source_json.Tracks,
-			Intro:     source_json.Intro,
-			Outro:     source_json.Outro,
+	if !sourceJson.Encrypted || strings.Contains(sourceJson.Sources[0].File, ".m3u8") {
+		streamMap = StreamData{
+			Url:       sourceJson.Sources[0].File,
+			UserAgent: userAgent,
+			Referer:   defaultDomain,
+			Origin:    defaultDomain,
+			Tracks:    sourceJson.Tracks,
+			Intro:     sourceJson.Intro,
+			Outro:     sourceJson.Outro,
 		}
 	} else {
 		return StreamData{}, fmt.Errorf("Files are encrypted. Try other servers.")
 	}
 
-	return map_struct, nil
+	return streamMap, nil
 }

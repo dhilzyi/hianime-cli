@@ -67,3 +67,12 @@ type Source struct {
 	File string `json:"file"`
 	Type string `json:"type"`
 }
+
+type SearchElements struct {
+	EnglishName    string
+	JapaneseName   string
+	Url            string
+	Type           string
+	Duration       string
+	NumberEpisodes int16
+}
