@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 type History struct {
@@ -23,21 +22,7 @@ type EpisodeProgress struct {
 	Duration float64 `json:"duration"`
 }
 
-func getDefaultPath() (string, error) {
-	exePath, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("Failed to get executable path: %w", err)
-	}
-	defaultPath := filepath.Join(exePath, "state")
-
-	if err = os.MkdirAll(defaultPath, 0755); err != nil {
-		return "", fmt.Errorf("Failed to find/create directory: %w", err)
-	}
-
-	historyPath := filepath.Join(defaultPath, "history.json")
-
-	return historyPath, nil
-}
+var defaultPath string = "state/history.json"
 
 func UpdateHistory(currentHistory []History, targetData History) []History {
 	var cleaned []History
@@ -50,8 +35,8 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 
 	newHistory := append([]History{targetData}, cleaned...)
 
-	if len(newHistory) > 10 {
-		newHistory = newHistory[:10]
+	if len(newHistory) > 20 {
+		newHistory = newHistory[:20]
 	}
 
 	return newHistory
@@ -63,11 +48,7 @@ func SaveHistory(rawData []History) error {
 		return fmt.Errorf("Failed to save the history files: %w", err)
 	}
 
-	historyPath, err := getDefaultPath()
-	if err != nil {
-		return fmt.Errorf("Couldn't find the path: %w", err)
-	}
-
+	historyPath := defaultPath
 	if err = os.WriteFile(historyPath, jsonData, os.ModePerm); err != nil {
 		return fmt.Errorf("Failed to write history files: %w", err)
 	}
@@ -78,10 +59,7 @@ func SaveHistory(rawData []History) error {
 func LoadHistory() ([]History, error) {
 	var historySession []History
 
-	historyPath, err := getDefaultPath()
-	if err != nil {
-		return historySession, fmt.Errorf("Couldn't find the path: %w", err)
-	}
+	historyPath := defaultPath
 
 	if _, err := os.Stat(historyPath); err == nil {
 		fmt.Println("File history load success.")

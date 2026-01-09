@@ -10,6 +10,18 @@ import (
 )
 
 func Search(query string) ([]SearchElements, error) {
+	if strings.Contains(query, " ") {
+		words := strings.Fields(query)
+		query = ""
+		for i := range words {
+			if i == len(words)-1 {
+				query += words[i]
+			} else {
+				query += fmt.Sprintf(`%s+`, words[i])
+			}
+		}
+	}
+
 	searchUrl := "https://hianime.to/search?keyword=" + query
 
 	res, err := http.Get(searchUrl)

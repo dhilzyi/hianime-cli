@@ -53,39 +53,49 @@ series_loop:
 		} else if seriesInput == "s" {
 			var searchData []hianime.SearchElements
 			var err error
+		search_loop:
 			for {
-				fmt.Printf("\nEnter anime name to search (or 'q' to go back):")
-				scanner.Scan()
-				searchInput := scanner.Text()
-				searchData, err = hianime.Search(searchInput)
-				if err != nil {
-					fmt.Println(err)
+				for {
+					fmt.Printf("\nEnter anime name to search (or 'q' to go back):")
+					scanner.Scan()
+					searchInput := scanner.Text()
+					searchData, err = hianime.Search(searchInput)
+					if err != nil {
+						fmt.Println(err)
+					}
+
+					if len(searchData) != 0 {
+						ui.PrintSeries(searchData)
+						break
+					} else {
+						fmt.Println("--! No anime result found")
+						continue
+					}
 				}
 
-				if len(searchData) != 0 {
-					ui.PrintSeries(searchData)
-					break
-				} else {
-					fmt.Println("--! No anime result found")
-					continue
+				for {
+					fmt.Printf("\nEnter number anime to play (or 'q' to go back): ")
+					scanner.Scan()
+
+					usrInput := scanner.Text()
+					if usrInput == "q" {
+						break
+					}
+
+					usrInputInt, err := strconv.Atoi(strings.TrimSpace(usrInput))
+					if err != nil {
+						fmt.Println("Failed to convert to integer. Input number.")
+						continue
+					} else if usrInputInt > len(searchData) || usrInputInt <= 0 {
+						fmt.Println("Input is out of range.")
+						continue
+					}
+
+					seriesInput = searchData[usrInputInt-1].Url
+					break search_loop
 				}
 			}
 
-			for {
-				fmt.Printf("\nEnter anime number to play: ")
-				scanner.Scan()
-
-				usrInput := scanner.Text()
-				usrInputInt, err := strconv.Atoi(strings.TrimSpace(usrInput))
-				if err != nil {
-					fmt.Println("Failed to convert to integer. Input number.")
-					continue
-				}
-
-				seriesInput = searchData[usrInputInt-1].Url
-				fmt.Println(url)
-				break
-			}
 		}
 
 		var historySelect state.History
@@ -113,7 +123,7 @@ series_loop:
 
 			seriesInputInt, err := strconv.Atoi(seriesInput)
 			if err != nil {
-				fmt.Println("Failed to convert to integer. Input number or paste url")
+				fmt.Println("Invalid input. Enter number or paste url or use search api with `s`")
 				continue
 			}
 
