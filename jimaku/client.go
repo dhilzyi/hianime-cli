@@ -39,18 +39,18 @@ var JimakuApi string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
 func downloadFile(url string, filePath string) (string, error) {
 	cleanPath := strings.TrimRight(filePath, ".")
 	if err := os.MkdirAll(filepath.Dir(cleanPath), 0755); err != nil {
-		return "", fmt.Errorf("failed to create dir: %w", err)
+		return "", err
 	}
 
 	out, err := os.Create(cleanPath)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create file %s: %w", cleanPath, err)
+		return "", err
 	}
 	defer out.Close()
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't fetch the following url: %w", err)
+		return "", err
 	}
 
 	defer resp.Body.Close()
@@ -61,7 +61,7 @@ func downloadFile(url string, filePath string) (string, error) {
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("Error while copying the data to the file: %w", err)
+		return "", err
 	}
 
 	return cleanPath, nil
@@ -72,7 +72,7 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 	req, err := http.NewRequest("GET", urlFiles, nil)
 	if err != nil {
-		return Files{}, fmt.Errorf("Failed fetching entry id: %w", err)
+		return Files{}, err
 	}
 
 	query := req.URL.Query()
@@ -86,7 +86,7 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return Files{}, fmt.Errorf("Failed to request entry id: %w", err)
+		return Files{}, err
 	}
 
 	defer res.Body.Close()
@@ -94,7 +94,7 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 	var subsFiles Files
 
 	if err = json.NewDecoder(res.Body).Decode(&subsFiles); err != nil {
-		return Files{}, fmt.Errorf("Failed convert subs files to JSON: %w", err)
+		return Files{}, err
 	}
 
 	// for i := range subsFiles {
@@ -107,17 +107,12 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 }
 
-func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, error) {
-	if JimakuApi == "" {
-		return []string{}, fmt.Errorf("No Jimaku API found in the enviroment variable.")
-	}
-	fmt.Println("\n--> JimakuApiKey found. Querying into the Jimaku api....")
-
+func getIdJimaku(seriesData hianime.SeriesData) (Search, error) {
 	urlSearch := fmt.Sprintf("%s/api/entries/search", JimakuBaseUrl)
 
 	req, err := http.NewRequest("GET", urlSearch, nil)
 	if err != nil {
-		return []string{}, fmt.Errorf("Failed when parsing url: %w", err)
+		return Search{}, err
 	}
 	req.Header.Add("Authorization", JimakuApi)
 
@@ -135,31 +130,45 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return []string{}, fmt.Errorf("Failed to request query: %w", err)
+		return Search{}, err
 	}
 
 	defer res.Body.Close()
 
 	var data Search
 	if res.StatusCode != http.StatusOK {
-		return []string{}, fmt.Errorf("Bad status when querying: %s", res.Status)
+		return Search{}, fmt.Errorf("Bad status when querying: %s", res.Status)
 	}
 
 	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
-		return []string{}, fmt.Errorf("Failed to decode to JSON: %w", err)
+		return Search{}, err
 	}
 
 	if len(data) == 0 {
-		return []string{}, fmt.Errorf("--! Nothing found in Jimaku.")
+		return Search{}, fmt.Errorf("--! Nothing found in Jimaku.")
 	}
 
 	if data[0].ID <= 0 {
-		return []string{}, fmt.Errorf("Invalid ID found.")
+		return Search{}, fmt.Errorf("Invalid ID found.")
+	}
+
+	return data, nil
+}
+
+func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, error) {
+	if JimakuApi == "" {
+		return []string{}, fmt.Errorf("No Jimaku API found in the enviroment variable.")
+	}
+	fmt.Println("\n--> JimakuApiKey found. Querying into the Jimaku api....")
+
+	data, err := getIdJimaku(seriesData)
+	if err != nil {
+		return []string{}, err
 	}
 
 	filesList, err := getFiles(int(data[0].ID), episodeNum)
 	if err != nil {
-		return []string{}, fmt.Errorf("Failed when getting files: %w", err)
+		return []string{}, err
 	}
 
 	homeDir, err := os.UserHomeDir()
@@ -174,7 +183,7 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 	seriesDir := filepath.Join(defaultPath, cleanName)
 
 	if err := os.MkdirAll(seriesDir, 0755); err != nil {
-		return []string{}, fmt.Errorf("Failed to create series directory: %w", err)
+		return []string{}, err
 	}
 
 	var nameLists []string
@@ -220,7 +229,7 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 	}
 
 	if len(nameLists) == 0 {
-		return nameLists, fmt.Errorf("Failed to retrieve.")
+		return nameLists, fmt.Errorf("--! Failed to retrieve anything.")
 	}
 
 	return nameLists, nil

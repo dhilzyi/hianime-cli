@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"slices"
 	"text/tabwriter"
 
 	"hianime-mpv-go/config"
@@ -14,6 +15,16 @@ func prettyDuration(seconds float64) string {
 	m := int(seconds) / 60
 	s := int(seconds) % 60
 	return fmt.Sprintf("%02d:%02d", m, s)
+}
+
+func typeOrder(t string, listType []string) int {
+	for i, typ := range listType {
+		if typ == t {
+			return i
+		}
+	}
+
+	return len(listType)
 }
 
 func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
@@ -54,6 +65,20 @@ func DebugPrint(format string, contents ...any) {
 
 func PrintSeries(searchData []hianime.SearchElements) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+
+	typeOrders := config.ConfigSession.SortType
+
+	slices.SortFunc(searchData, func(a, b hianime.SearchElements) int {
+		orderA := typeOrder(a.Type, typeOrders)
+		orderB := typeOrder(b.Type, typeOrders)
+
+		if orderA != orderB {
+			if orderA < orderB {
+				return -1
+			}
+		}
+		return 1
+	})
 
 	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tDURATION\tNUMBER EPS")
 	for i := range searchData {

@@ -22,7 +22,7 @@ import (
 //go:embed track.lua
 var TrackScript string
 
-func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History, configData config.Settings) []string {
+func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History) []string {
 	// Building title display for mpv
 	displayTitle := fmt.Sprintf("%s [Ep. %d] %s (%s)", metaData.JapaneseName, episodeData.Number, episodeData.JapaneseTitle, serverData.Name)
 
@@ -61,7 +61,7 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	}
 
 	// Jimaku subtitle command
-	if configData.JimakuEnable {
+	if config.ConfigSession.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
 		if err != nil {
 			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
@@ -82,7 +82,7 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 		if track.Kind == "thumbnails" {
 			continue
 		}
-		if configData.EnglishOnly && track.Label != "English" {
+		if config.ConfigSession.EnglishOnly && track.Label != "English" {
 			continue
 		}
 
@@ -249,9 +249,9 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	return streamStarted, subDelay, lastPos, totalDuration
 }
 
-func GetMpvBinary(configPath string) string {
-	if configPath != "" {
-		return configPath
+func GetMpvBinary() string {
+	if config.ConfigSession.MpvPath != "" {
+		return config.ConfigSession.MpvPath
 	}
 	if runtime.GOOS == "windows" {
 		return "mpv.exe"

@@ -64,7 +64,7 @@ func GetEpisodes(animeId string) []Episodes {
 	defer apiResp.Body.Close()
 	var jsonResp AjaxResponse
 	if err := json.NewDecoder(apiResp.Body).Decode(&jsonResp); err != nil {
-		panic("Failed to decode JSON: " + err.Error())
+		fmt.Errorf("Failed to decode JSON: " + err.Error())
 	}
 
 	apiDoc, err := goquery.NewDocumentFromReader(strings.NewReader(jsonResp.Html))
@@ -235,6 +235,10 @@ func ExtractMegacloud(iframeUrl string) (StreamData, error) {
 	var nonce string
 
 	for i := range maxAttempt {
+		if i >= maxAttempt {
+			break
+		}
+
 		fmt.Printf("--> Attempt %d/%d to extract...\n", i+1, maxAttempt)
 
 		resp, err := client.Do(req)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type History struct {
@@ -22,7 +23,7 @@ type EpisodeProgress struct {
 	Duration float64 `json:"duration"`
 }
 
-var defaultPath string = "state/history.json"
+var defaultPath string
 
 func UpdateHistory(currentHistory []History, targetData History) []History {
 	var cleaned []History
@@ -45,12 +46,11 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 func SaveHistory(rawData []History) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
-		return fmt.Errorf("Failed to save the history files: %w", err)
+		return err
 	}
 
-	historyPath := defaultPath
-	if err = os.WriteFile(historyPath, jsonData, os.ModePerm); err != nil {
-		return fmt.Errorf("Failed to write history files: %w", err)
+	if err = os.WriteFile(defaultPath, jsonData, os.ModePerm); err != nil {
+		return err
 	}
 
 	return nil
@@ -59,17 +59,25 @@ func SaveHistory(rawData []History) error {
 func LoadHistory() ([]History, error) {
 	var historySession []History
 
+	if defaultPath == "" {
+		var err error
+		defaultPath, err = getExePath("history.json")
+		if err != nil {
+			return []History{}, err
+		}
+	}
+
 	historyPath := defaultPath
 
 	if _, err := os.Stat(historyPath); err == nil {
 		fmt.Println("File history load success.")
 		jsonData, err := os.ReadFile(historyPath)
 		if err != nil {
-			return historySession, fmt.Errorf("Failed to open json files: %w", err)
+			return historySession, err
 		}
 
 		if err = json.Unmarshal(jsonData, &historySession); err != nil {
-			return historySession, fmt.Errorf("Failed to convert to struct: %w", err)
+			return historySession, err
 		}
 
 	} else if os.IsNotExist(err) {
@@ -78,11 +86,27 @@ func LoadHistory() ([]History, error) {
 		SaveHistory(historySession)
 
 		if err != nil {
-			return historySession, fmt.Errorf("Failed to create history json file: %w", err)
+			return historySession, err
 		}
 	} else {
-		return historySession, fmt.Errorf("Error accessing path %s: %w\n", historyPath, err)
+		return historySession, err
 	}
 
 	return historySession, nil
+}
+
+func getExePath(filename string) (string, error) {
+	ex, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	defaultPath := filepath.Join(filepath.Dir(ex), "state")
+
+	if err = os.MkdirAll(defaultPath, 0755); err != nil {
+		return "", err
+	}
+
+	historyPath := filepath.Join(defaultPath, filename)
+
+	return historyPath, nil
 }

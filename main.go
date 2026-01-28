@@ -24,9 +24,9 @@ func main() {
 	var url string
 	history, err := state.LoadHistory()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Fail to load history file: " + err.Error())
 	}
-	configSession, err := config.LoadConfig()
+	err = config.LoadConfig()
 	if err != nil {
 		fmt.Println("Fail to load config file: " + err.Error())
 	}
@@ -59,6 +59,9 @@ series_loop:
 					fmt.Printf("\nEnter anime name to search (or 'q' to go back):")
 					scanner.Scan()
 					searchInput := scanner.Text()
+					if searchInput == "q" {
+						break search_loop
+					}
 					searchData, err = hianime.Search(searchInput)
 					if err != nil {
 						fmt.Println(err)
@@ -198,7 +201,7 @@ series_loop:
 				var selectedServer hianime.ServerList
 				var streamData hianime.StreamData
 
-				if configSession.AutoSelectServer {
+				if config.ConfigSession.AutoSelectServer {
 					if testedServer >= len(servers) {
 						fmt.Println("\nNo available servers found for following episode.")
 						break
@@ -266,8 +269,8 @@ series_loop:
 				}
 
 				// get mpv path automatically according user platforms.
-				binName := player.GetMpvBinary(configSession.MpvPath)
-				desktopCommands := player.BuildDesktopCommands(seriesMetadata, selectedEpisode, selectedServer, streamData, historySelect, configSession)
+				binName := player.GetMpvBinary()
+				desktopCommands := player.BuildDesktopCommands(seriesMetadata, selectedEpisode, selectedServer, streamData, historySelect)
 
 				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands)
 

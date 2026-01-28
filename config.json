@@ -2,5 +2,13 @@
  "jimaku_enable": true,
  "auto_selectserver": true,
  "mpv_path": "",
- "english_only": true
+ "english_only": true,
+ "sort_type": [
+  "TV",
+  "Movie",
+  "OVA",
+  "Special",
+  "ONA",
+  "Music"
+ ]
 }
