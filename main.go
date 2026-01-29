@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"hianime-mpv-go/cli"
 	"hianime-mpv-go/config"
 	"hianime-mpv-go/hianime"
 	"hianime-mpv-go/player"
@@ -22,10 +23,16 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
 	var url string
+
+	err := cli.InitPath()
+	if err != nil {
+		fmt.Println("Fail to initialize path: " + err.Error())
+	}
 	history, err := state.LoadHistory()
 	if err != nil {
 		fmt.Println("Fail to load history file: " + err.Error())
 	}
+
 	err = config.LoadConfig()
 	if err != nil {
 		fmt.Println("Fail to load config file: " + err.Error())

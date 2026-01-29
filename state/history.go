@@ -1,6 +1,8 @@
 package state
 
 import (
+	"hianime-mpv-go/cli"
+
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,7 +25,7 @@ type EpisodeProgress struct {
 	Duration float64 `json:"duration"`
 }
 
-var defaultPath string
+var historyFilePath string
 
 func UpdateHistory(currentHistory []History, targetData History) []History {
 	var cleaned []History
@@ -49,7 +51,11 @@ func SaveHistory(rawData []History) error {
 		return err
 	}
 
-	if err = os.WriteFile(defaultPath, jsonData, os.ModePerm); err != nil {
+	if err := os.MkdirAll(cli.PathsData.DataDir, 0755); err != nil {
+		return err
+	}
+
+	if err = os.WriteFile(historyFilePath, jsonData, 0644); err != nil {
 		return err
 	}
 
@@ -59,54 +65,43 @@ func SaveHistory(rawData []History) error {
 func LoadHistory() ([]History, error) {
 	var historySession []History
 
-	if defaultPath == "" {
-		var err error
-		defaultPath, err = getExePath("history.json")
-		if err != nil {
-			return []History{}, err
+	dataDir := cli.PathsData.DataDir
+
+	historyFilePath = filepath.Join(dataDir, "history.json")
+	oldPathHistory := filepath.Join("state", "history.json")
+
+	if data, err := os.ReadFile(historyFilePath); err == nil {
+		if err = json.Unmarshal(data, &historySession); err != nil {
+			return nil, err
 		}
+
+		fmt.Println("Load history success")
+		return historySession, err
+	} else if !os.IsNotExist(err) {
+		return nil, err
 	}
 
-	historyPath := defaultPath
-
-	if _, err := os.Stat(historyPath); err == nil {
-		fmt.Println("File history load success.")
-		jsonData, err := os.ReadFile(historyPath)
-		if err != nil {
-			return historySession, err
+	if data, err := os.ReadFile(oldPathHistory); err == nil {
+		if err = json.Unmarshal(data, &historySession); err != nil {
+			return nil, err
 		}
 
-		if err = json.Unmarshal(jsonData, &historySession); err != nil {
-			return historySession, err
+		os.MkdirAll(dataDir, 0755)
+
+		if err := SaveHistory(historySession); err != nil {
+			return nil, err
 		}
 
-	} else if os.IsNotExist(err) {
-		_, err := os.Create(historyPath)
+		fmt.Println("History migrated from legacy location.")
 
-		SaveHistory(historySession)
-
-		if err != nil {
-			return historySession, err
-		}
-	} else {
 		return historySession, err
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	if err := SaveHistory(historySession); err != nil {
+		return nil, err
 	}
 
 	return historySession, nil
-}
-
-func getExePath(filename string) (string, error) {
-	ex, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	defaultPath := filepath.Join(filepath.Dir(ex), "state")
-
-	if err = os.MkdirAll(defaultPath, 0755); err != nil {
-		return "", err
-	}
-
-	historyPath := filepath.Join(defaultPath, filename)
-
-	return historyPath, nil
 }
