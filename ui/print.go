@@ -6,9 +6,9 @@ import (
 	"slices"
 	"text/tabwriter"
 
-	"hianime-mpv-go/config"
-	"hianime-mpv-go/hianime"
-	"hianime-mpv-go/state"
+	"github.com/dhilzyi/hianime-cli/config"
+	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/state"
 )
 
 func prettyDuration(seconds float64) string {

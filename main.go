@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"hianime-mpv-go/cli"
-	"hianime-mpv-go/config"
-	"hianime-mpv-go/hianime"
-	"hianime-mpv-go/player"
-	"hianime-mpv-go/state"
-	"hianime-mpv-go/ui"
+	"github.com/dhilzyi/hianime-cli/cli"
+	"github.com/dhilzyi/hianime-cli/config"
+	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/player"
+	"github.com/dhilzyi/hianime-cli/state"
+	"github.com/dhilzyi/hianime-cli/ui"
 )
 
 var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}

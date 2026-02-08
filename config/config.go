@@ -1,7 +1,7 @@
 package config
 
 import (
-	"hianime-mpv-go/cli"
+	"github.com/dhilzyi/hianime-cli/cli"
 
 	"encoding/json"
 	"fmt"

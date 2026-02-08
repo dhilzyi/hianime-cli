@@ -1,4 +1,4 @@
-module hianime-mpv-go
+module github.com/dhilzyi/hianime-cli
 
 go 1.25.4
 

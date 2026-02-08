@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"hianime-mpv-go/hianime"
+	"github.com/dhilzyi/hianime-cli/hianime"
 )
 
 type Search []SearchElement
