@@ -23,19 +23,27 @@ This project was built for educational purposes to practice web scraping and Go.
 ## Config
 User can customize to their personal preference in `config.json`
 
-Simple table for explanations.
+Config path file can be found in:
+| Platform | Path|
+| --- | --- |
+| Windows | %APPDATA%/hianimecli/config.json|
+| Linux | ~/.config/hianimecli/config.json|
 
-| Name | Description | Default |
+
+Field table for explanations.
+
+| Field | Description | Default Value |
 | ---- | ---- | ---- |
 | jimaku_enable | Toggle Jimaku API integration on or off. | true |
 | auto_selectserver | Automatically select the first available server. | true |
 | mpv_path | Custom path to your MPV executable (leave empty to use system default). | "" |
 | english_only | Only load English subtitles; ignore other languages. | true |
+| sort_type | Order type for search results. User can change the order as they like. | {"TV", "Movie", "OVA", "Special", "ONA", "Music"} |
 
 ## Troubleshoot
 - Jimaku API issues: Get your key from [jimaku.cc](https://jimaku.cc) and add it to environment variables (e.g. JIMAKU_API_KEY=yourkey).
 
-## Thanks to
+## Acknowledgment
 - [MediaVanced](https://github.com/yogesh-hacker/MediaVanced)
 
 ## License

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"hianime-mpv-go/cli"
 	"hianime-mpv-go/config"
 	"hianime-mpv-go/hianime"
 	"hianime-mpv-go/jimaku"
@@ -277,12 +278,13 @@ func isWSL() bool {
 }
 
 func EnsureTrackScript(pathFile string) (string, error) {
-	dir := "scripts"
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	dataDir := filepath.Join(cli.PathsData.DataDir, "script")
+
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return "", fmt.Errorf("Failed to create series directory: %w", err)
 	}
 
-	scriptPath := filepath.Join(dir, pathFile)
+	scriptPath := filepath.Join(dataDir, pathFile)
 	if _, err := os.Stat(scriptPath); err == nil {
 		fmt.Println("--> Lua script exist")
 

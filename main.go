@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -21,8 +20,6 @@ var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1,
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-
-	var url string
 
 	err := cli.InitPath()
 	if err != nil {
@@ -60,6 +57,7 @@ series_loop:
 		} else if seriesInput == "s" {
 			var searchData []hianime.SearchElements
 			var err error
+
 		search_loop:
 			for {
 				for {
@@ -112,8 +110,7 @@ series_loop:
 		var seriesMetadata hianime.SeriesData
 
 		if strings.Contains(seriesInput, "hianime.to") {
-			url = seriesInput
-			seriesMetadata = hianime.GetSeriesData(url)
+			seriesMetadata = hianime.GetSeriesData(seriesInput)
 			newHistory := state.History{
 				Url:          seriesMetadata.SeriesUrl,
 				JapaneseName: seriesMetadata.JapaneseName,
@@ -138,9 +135,7 @@ series_loop:
 			}
 
 			historySelect = history[seriesInputInt-1]
-			url = historySelect.Url
-
-			seriesMetadata = hianime.GetSeriesData(url)
+			seriesMetadata = hianime.GetSeriesData(historySelect.Url)
 
 			history = state.UpdateHistory(history, historySelect)
 			state.SaveHistory(history)
@@ -282,8 +277,7 @@ series_loop:
 				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands)
 
 				if success {
-					cleanDelay := math.Round(subDelay*10) / 10
-					historySelect.SubDelay = cleanDelay
+					historySelect.SubDelay = subDelay
 
 					if historySelect.Episode == nil {
 						historySelect.Episode = make(map[int]state.EpisodeProgress)
