@@ -4,6 +4,7 @@ notes.txt
 *html
 *_test.go
 *sh
+*json
 TODO.md
 http
 
@@ -13,4 +14,3 @@ hianime-linux-amd64
 test-build-dev
 
 scripts
-state/history.json

@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/cli"
-	"github.com/dhilzyi/hianime-cli/config"
 	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/path"
+	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/player"
-	"github.com/dhilzyi/hianime-cli/state"
 	"github.com/dhilzyi/hianime-cli/ui"
 )
 
