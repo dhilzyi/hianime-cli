@@ -2,17 +2,19 @@ package player
 
 import (
 	"bufio"
+	"context"
 	_ "embed"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/config"
 	"github.com/dhilzyi/hianime-cli/hianime"
 	"github.com/dhilzyi/hianime-cli/jimaku"
@@ -21,9 +23,10 @@ import (
 )
 
 //go:embed track.lua
-var TrackScript string
+var trackScript string
+var scriptName string = "track.lua"
 
-func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History) []string {
+func BuildDesktopCommands(cfg config.Settings, metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History, datadir string) []string {
 	// Building title display for mpv
 	displayTitle := fmt.Sprintf("%s [Ep. %d] %s (%s)", metaData.JapaneseName, episodeData.Number, episodeData.JapaneseTitle, serverData.Name)
 
@@ -62,11 +65,11 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	}
 
 	// Jimaku subtitle command
-	if config.ConfigSession.JimakuEnable {
+	if cfg.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
 		if err != nil {
 			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-			fmt.Printf("Skipping Jimaku\n")
+			fmt.Printf("--> Skipping Jimaku\n")
 		} else {
 			if len(jimakuList) > 0 {
 				for i := range jimakuList {
@@ -83,7 +86,7 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 		if track.Kind == "thumbnails" {
 			continue
 		}
-		if config.ConfigSession.EnglishOnly && track.Label != "English" {
+		if cfg.EnglishOnly && track.Label != "English" {
 			continue
 		}
 
@@ -97,15 +100,14 @@ func BuildDesktopCommands(metaData hianime.SeriesData, episodeData hianime.Episo
 	}
 
 	// track script & debug command
-	scriptLua, err := EnsureTrackScript("track.lua")
+	scriptLua, err := ensureTrackScript("track.lua", datadir)
 	if err == nil {
 		args = append(args, "--scripts-append="+scriptLua)
+	} else {
+		log.Println(err)
 	}
 
-	if config.DebugMode {
-		args = append(args, "--v")
-	}
-
+	args = append(args, "--v")
 	return args
 }
 
@@ -165,7 +167,10 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	var lastPos float64
 	var totalDuration float64
 
-	cmd := exec.Command(cmdName, args...)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -179,10 +184,13 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	}
 
 	scanner := bufio.NewScanner(stdout)
+	done := make(chan struct{})
 	timer := time.AfterFunc(20*time.Second, func() {
 		fmt.Println("\n--> MPV is timeout. Killing process...")
-		cmd.Process.Kill()
-		streamStarted = false
+		if cmd.Process != nil {
+			streamStarted = false
+			cmd.Process.Kill()
+		}
 	})
 
 	var flag bool
@@ -199,14 +207,6 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 			}
 
 			streamStarted = true
-		} else if strings.Contains(line, "Opening failed") || strings.Contains(line, "HTTP error") {
-			fmt.Println("Failed to stream. Potentially dead link...")
-
-			streamStarted = false
-			timer.Stop()
-			cmd.Process.Kill()
-
-			break
 		} else if strings.Contains(line, "::STATUS::") {
 			parts := strings.Split(line, "::STATUS::")
 
@@ -245,14 +245,18 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	}
 
 	if err := cmd.Wait(); err != nil {
+		log.Println(err)
 	}
+
+	close(done)
+	timer.Stop()
 
 	return streamStarted, subDelay, lastPos, totalDuration
 }
 
-func GetMpvBinary() string {
-	if config.ConfigSession.MpvPath != "" {
-		return config.ConfigSession.MpvPath
+func GetMpvBinary(mpvPath string) string {
+	if mpvPath != "" {
+		return mpvPath
 	}
 	if runtime.GOOS == "windows" {
 		return "mpv.exe"
@@ -277,27 +281,31 @@ func isWSL() bool {
 	return strings.Contains(content, "microsoft") || strings.Contains(content, "wsl")
 }
 
-func EnsureTrackScript(pathFile string) (string, error) {
-	dataDir := filepath.Join(cli.PathsData.DataDir, "script")
+func ensureTrackScript(fileName string, dataDir string) (string, error) {
+	scriptDir := filepath.Join(dataDir, "scripts")
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return "", fmt.Errorf("Failed to create series directory: %w", err)
+	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+		return "", fmt.Errorf("Failed to create directory: %w", err)
 	}
 
-	scriptPath := filepath.Join(dataDir, pathFile)
+	scriptPath := filepath.Join(scriptDir, fileName)
 	if _, err := os.Stat(scriptPath); err == nil {
 		fmt.Println("--> Lua script exist")
-
 	} else if os.IsNotExist(err) {
-
-		errA := os.WriteFile(scriptPath, []byte(TrackScript), 0644)
-		if errA != nil {
-			return "", fmt.Errorf("Failed to write script :%w", errA)
+		if err := WriteLuaScript(scriptPath); err != nil {
+			return "", err
 		}
-
 	} else {
-		return "", fmt.Errorf("Error accessing path %s: %w\n", pathFile, err)
+		return "", fmt.Errorf("Error accessing path %s: %w\n", fileName, err)
 	}
 
 	return scriptPath, nil
+}
+
+func WriteLuaScript(scriptPath string) error {
+	err := os.WriteFile(scriptPath, []byte(trackScript), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write script :%w", err)
+	}
+	return nil
 }

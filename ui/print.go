@@ -6,7 +6,6 @@ import (
 	"slices"
 	"text/tabwriter"
 
-	"github.com/dhilzyi/hianime-cli/config"
 	"github.com/dhilzyi/hianime-cli/hianime"
 	"github.com/dhilzyi/hianime-cli/state"
 )
@@ -57,16 +56,16 @@ func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
 }
 
 func DebugPrint(format string, contents ...any) {
-	if config.DebugMode {
-		prefix := "[ DEBUG ] "
-		fmt.Println(prefix, contents)
-	}
+	// if cli.Flags.Debug {
+	// prefix := "[ DEBUG ] "
+	// fmt.Println(prefix, contents)
+	// }
 }
 
-func PrintSeries(searchData []hianime.SearchElements) {
+func PrintSeries(searchData []hianime.SearchElements, order []string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
-	typeOrders := config.ConfigSession.SortType
+	typeOrders := order
 
 	slices.SortFunc(searchData, func(a, b hianime.SearchElements) int {
 		orderA := typeOrder(a.Type, typeOrders)
