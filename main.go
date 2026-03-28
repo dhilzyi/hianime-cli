@@ -116,8 +116,19 @@ seriesLoop:
 		var historySelect state.History
 		var seriesMetadata hianime.SeriesData
 
-		if strings.Contains(seriesInput, "hianime.to") {
-			seriesMetadata = hianime.GetSeriesData(seriesInput)
+		if strings.Contains(seriesInput, "hianime.to") || strings.Contains(seriesInput, "aniwatchtv.to") {
+			if strings.Contains(seriesInput, "hianime.to") {
+				hianime.BaseUrl = "https://hianime.to"
+			} else {
+				hianime.BaseUrl = "https://aniwatchtv.to"
+			}
+
+			seriesMetadata, err = hianime.GetSeriesData(seriesInput)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
 			newHistory := state.History{
 				Url:          seriesMetadata.SeriesUrl,
 				JapaneseName: seriesMetadata.JapaneseName,
@@ -144,19 +155,39 @@ seriesLoop:
 			}
 
 			historySelect = history[seriesInputInt-1]
-			seriesMetadata = hianime.GetSeriesData(historySelect.Url)
+
+			if strings.Contains(historySelect.Url, "hianime.to") {
+				fmt.Println("hianime.to site is down, can't play the url")
+				continue
+				// hianime.BaseUrl = "hianime.to"
+			} else {
+				hianime.BaseUrl = "https://aniwatchtv.to"
+			}
+
+			seriesMetadata, err = hianime.GetSeriesData(historySelect.Url)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
 
 			history = state.UpdateHistory(history, historySelect)
-			state.SaveHistory(history)
+			if err := state.SaveHistory(history, appDir.DataDir); err != nil {
+				log.Println(err)
+			}
 		}
 
-	episode_loop:
+	episodeLoop:
 		for {
 			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.JapaneseName)
 
 			episodeCache, exists := cacheEpisodes[seriesMetadata.AnimeID]
 			if !exists {
-				episodeCache = hianime.GetEpisodes(seriesMetadata.AnimeID)
+				episodeCache, err = hianime.GetEpisodes(seriesMetadata.AnimeID)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+
 				cacheEpisodes[seriesMetadata.AnimeID] = episodeCache
 			}
 
@@ -190,19 +221,25 @@ seriesLoop:
 			var selectedEpisode hianime.Episodes
 			if selectedNum > 0 && selectedNum <= len(episodeCache) {
 				selectedEpisode = episodeCache[selectedNum-1]
-				servers = hianime.GetEpisodeServerId(selectedEpisode.Id)
+				servers, err = hianime.GetEpisodeServerId(selectedEpisode.Id)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 
 				historySelect.LastEpisode = selectedNum
 
 				history = state.UpdateHistory(history, historySelect)
-				state.SaveHistory(history)
+				if err := state.SaveHistory(history, appDir.DataDir); err != nil {
+					log.Println(err)
+				}
 			} else {
 				fmt.Println("Number is invalid.")
 				continue
 			}
 
 			var testedServer int
-		server_loop:
+		serverLoop:
 			for {
 				if len(servers) == 0 {
 					fmt.Println("\nNo available servers found.")

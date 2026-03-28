@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,24 +14,22 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-var BaseUrl string = "https://hianime.to"
+var BaseUrl string = "https://aniwatchtv.to"
 
 // This is where the hianime scrapper logic lives. Check types.go in this same directory to see all the struct types.
-
-func GetSeriesData(series_url string) SeriesData {
+// Migrating to using primaly aniwatch.tv because hianime is down for indefinite time
+// But the logic remain same
+func GetSeriesData(series_url string) (SeriesData, error) {
 	resp, err := http.Get(series_url)
 	if err != nil {
-		log.Fatal(err)
+		return SeriesData{}, err
 	}
 	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		return SeriesData{}, err
 	}
-
-	// series_html, err := doc.Html()
-	// os.WriteFile("a.html", []byte(series_html), 0644)
 
 	header := doc.Find("h2.film-name")
 
@@ -50,26 +47,26 @@ func GetSeriesData(series_url string) SeriesData {
 	data.EnglishName = strings.TrimSpace(header.Text())
 	data.JapaneseName = strings.TrimSpace(jname)
 
-	return data
+	return data, nil
 }
 
-func GetEpisodes(animeId string) []Episodes {
+func GetEpisodes(animeId string) ([]Episodes, error) {
 	apiUrl := fmt.Sprintf("%s/ajax/v2/episode/list/%s", BaseUrl, animeId)
 
 	apiResp, err := http.Get(apiUrl)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	defer apiResp.Body.Close()
 	var jsonResp AjaxResponse
 	if err := json.NewDecoder(apiResp.Body).Decode(&jsonResp); err != nil {
-		fmt.Errorf("Failed to decode JSON: " + err.Error())
+		return nil, err
 	}
 
 	apiDoc, err := goquery.NewDocumentFromReader(strings.NewReader(jsonResp.Html))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var episodes []Episodes
@@ -78,16 +75,19 @@ func GetEpisodes(animeId string) []Episodes {
 		href, exists := s.Attr("href")
 		if !exists {
 			fmt.Println("Couldn't found href.")
+			return
 		}
 
 		dataId, exists := s.Attr("data-id")
 		if !exists {
 			fmt.Println("Couldn't found data-id.")
+			return
 		}
 
 		id_int, err := strconv.Atoi(dataId)
 		if err != nil {
 			fmt.Print("Failed to convert to integer: " + err.Error())
+			return
 		}
 
 		titleDiv := s.Find(".ep-name")
@@ -109,30 +109,26 @@ func GetEpisodes(animeId string) []Episodes {
 		episodes = append(episodes, episodeMap)
 	})
 
-	// api_html, err := apiDoc.Html()
-	//
-	// os.WriteFile("onepiece.html", []byte(api_html), 0644)
-
-	return episodes
+	return episodes, nil
 }
 
-func GetEpisodeServerId(episodeId int) []ServerList {
+func GetEpisodeServerId(episodeId int) ([]ServerList, error) {
 	serverUrl := fmt.Sprintf("%s/ajax/v2/episode/servers?episodeId=%d", BaseUrl, episodeId)
 
 	serverResp, err := http.Get(serverUrl)
 	if err != nil {
-		fmt.Println("Error while requesting server urls: " + err.Error())
+		return []ServerList{}, fmt.Errorf("Error while requesting server urls: " + err.Error())
 	}
 	defer serverResp.Body.Close()
 
 	var serverJson AjaxResponse
 	if err := json.NewDecoder(serverResp.Body).Decode(&serverJson); err != nil {
-		fmt.Println("Error while converting to json: " + err.Error())
+		return []ServerList{}, fmt.Errorf("Error while converting to json: " + err.Error())
 	}
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(serverJson.Html))
 	if err != nil {
-		fmt.Println("Failed fecthing json to doc: ", err.Error())
+		return []ServerList{}, fmt.Errorf("Failed fecthing json to doc: ", err.Error())
 	}
 
 	var serverLists []ServerList
@@ -170,7 +166,7 @@ func GetEpisodeServerId(episodeId int) []ServerList {
 		serverLists = append(serverLists, instance)
 	})
 
-	return serverLists
+	return serverLists, nil
 }
 
 func GetStreamData(serverId int) (StreamData, error) {
@@ -178,13 +174,13 @@ func GetStreamData(serverId int) (StreamData, error) {
 
 	resp, err := http.Get(serverUrl)
 	if err != nil {
-		fmt.Println("Failed to connect with server url: " + err.Error())
+		return StreamData{}, fmt.Errorf("Failed to connect with server url: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	var respJson MegacloudUrl
 	if err := json.NewDecoder(resp.Body).Decode(&respJson); err != nil {
-		fmt.Println("Failed to decode JSON: " + err.Error())
+		return StreamData{}, fmt.Errorf("Failed to decode JSON: " + err.Error())
 	}
 
 	var url string
@@ -192,10 +188,14 @@ func GetStreamData(serverId int) (StreamData, error) {
 		url = respJson.Url
 	}
 
-	return ExtractMegacloud(url)
+	streamData, err := ExtractMegacloud(url)
+	if err != nil {
+		return StreamData{}, nil
+	}
+	return streamData, nil
 }
 
-func GetNonce(html string) string {
+func getNonce(html string) string {
 	reStandard := regexp.MustCompile(`\b[a-zA-Z0-9]{48}\b`)
 	nonce := reStandard.FindString(html)
 	if nonce != "" {
@@ -266,7 +266,7 @@ func ExtractMegacloud(iframeUrl string) (StreamData, error) {
 		singleSelect := docMegacloud.Selection
 		outerHtml, _ := goquery.OuterHtml(singleSelect)
 
-		nonce = GetNonce(outerHtml)
+		nonce = getNonce(outerHtml)
 		if nonce == "" {
 			fmt.Println("Could not find nonce.")
 			time.Sleep(1 * time.Second)
@@ -300,9 +300,6 @@ func ExtractMegacloud(iframeUrl string) (StreamData, error) {
 	defer sourceResp.Body.Close()
 
 	var sourceJson Sources
-
-	// doc, err := goquery.NewDocumentFromReader(sourceResp.Body)
-	// fmt.Println(doc.Text())
 
 	if err := json.NewDecoder(sourceResp.Body).Decode(&sourceJson); err != nil {
 		return StreamData{}, fmt.Errorf("Failed to convert to JSON: %w", err)

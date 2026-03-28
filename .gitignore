@@ -3,11 +3,14 @@ notes.txt
 *exe
 *html
 *_test.go
+*sh
 TODO.md
+http
 
 database.go
 hianime-mpv-go
 hianime-linux-amd64
+test-build-dev
 
 scripts
 state/history.json
