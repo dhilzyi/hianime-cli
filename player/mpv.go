@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/config"
 	"github.com/dhilzyi/hianime-cli/hianime"
 	"github.com/dhilzyi/hianime-cli/jimaku"
@@ -26,7 +27,16 @@ import (
 var trackScript string
 var scriptName string = "track.lua"
 
-func BuildDesktopCommands(cfg config.Settings, metaData hianime.SeriesData, episodeData hianime.Episodes, serverData hianime.ServerList, streamingData hianime.StreamData, historyData state.History, datadir string) []string {
+func BuildDesktopCommands(
+	cfg config.Settings,
+	metaData hianime.SeriesData,
+	episodeData hianime.Episodes,
+	serverData hianime.ServerList,
+	streamingData hianime.StreamData,
+	historyData state.History,
+	datadir string,
+	flags cli.FlagsStruct,
+) []string {
 	// Building title display for mpv
 	displayTitle := fmt.Sprintf("%s [Ep. %d] %s (%s)", metaData.JapaneseName, episodeData.Number, episodeData.JapaneseTitle, serverData.Name)
 
@@ -55,7 +65,7 @@ func BuildDesktopCommands(cfg config.Settings, metaData hianime.SeriesData, epis
 
 	// Chapter command
 	if streamingData.Intro.End > 0 || streamingData.Outro.Start > 0 {
-		chapterPathFile := CreateChapters(streamingData, historyData, episodeData)
+		chapterPathFile := CreateChapters(streamingData, historyData, episodeData, flags.Debug)
 		if chapterPathFile != "" {
 			fmt.Println("--> Adding chapters to mpv.")
 			args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
@@ -107,12 +117,14 @@ func BuildDesktopCommands(cfg config.Settings, metaData hianime.SeriesData, epis
 		log.Println(err)
 	}
 
-	args = append(args, "--v")
+	if flags.MpvVerbose {
+		args = append(args, "--v")
+	}
 	return args
 }
 
 // NOTE: For intro and outro in mpv so user can know the timestamps and skip easily.
-func CreateChapters(data hianime.StreamData, historyData state.History, episodeData hianime.Episodes) string {
+func CreateChapters(data hianime.StreamData, historyData state.History, episodeData hianime.Episodes, debug bool) string {
 
 	f, err := os.CreateTemp("", "hianime_chapters_*.txt")
 	if err != nil {
@@ -146,10 +158,14 @@ func CreateChapters(data hianime.StreamData, historyData state.History, episodeD
 		// Using exact duration from history if exist
 		episodeProgress, exist := historyData.Episode[episodeData.Number]
 		if exist {
-			ui.DebugPrint("[CHAPTER]", "History duration exist")
+			if debug {
+				ui.DebugPrint("[CHAPTER]", "History duration exist", debug)
+			}
 			writePart(data.Outro.End, int(episodeProgress.Duration), "Part C")
 		} else {
-			ui.DebugPrint("[CHAPTER]", "History duration not exist")
+			if debug {
+				ui.DebugPrint("[CHAPTER]", "History duration not exist")
+			}
 			writePart(data.Outro.End, 9999999, "Part C")
 		}
 	}
@@ -159,7 +175,7 @@ func CreateChapters(data hianime.StreamData, historyData state.History, episodeD
 }
 
 // Now it supports windows and linux automatically, without hardcoding the mpv path. I hope
-func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
+func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float64, float64) {
 	cmdName := cmdMain
 
 	var streamStarted bool
@@ -197,7 +213,9 @@ func PlayMpv(cmdMain string, args []string) (bool, float64, float64, float64) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		ui.DebugPrint("[MPV]", line)
+		if verbose {
+			ui.DebugPrint("[MPV]", line)
+		}
 
 		if strings.Contains(line, "(+) Video --vid= ") || strings.Contains(line, "h264") {
 			timer.Stop()

@@ -56,10 +56,8 @@ func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
 }
 
 func DebugPrint(format string, contents ...any) {
-	// if cli.Flags.Debug {
-	// prefix := "[ DEBUG ] "
-	// fmt.Println(prefix, contents)
-	// }
+	prefix := "[ DEBUG ] "
+	fmt.Println(prefix, contents)
 }
 
 func PrintSeries(searchData []hianime.SearchElements, order []string) {
