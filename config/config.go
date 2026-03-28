@@ -1,8 +1,6 @@
 package config
 
 import (
-	"github.com/dhilzyi/hianime-cli/cli"
-
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,8 +8,6 @@ import (
 )
 
 var configFilePath string
-var DebugMode bool
-var ConfigSession Settings
 
 type Settings struct {
 	JimakuEnable     bool     `json:"jimaku_enable"`     // for enabling jimaku
@@ -19,42 +15,43 @@ type Settings struct {
 	MpvPath          string   `json:"mpv_path"`          // manually set mpv path command
 	EnglishOnly      bool     `json:"english_only"`      // whether user want importing english subtitle only or not into mpv
 	SortType         []string `json:"sort_type"`
+	LocalVersion     string   `json:"local_version"`
 }
 
-func LoadConfig() error {
-	configDir := cli.PathsData.ConfigDir
+func LoadConfig(configDir string) (Settings, error) {
+	var configSession Settings
 	configFilePath = filepath.Join(configDir, "config.json")
 	oldPath := "config.json"
 
 	if configData, err := os.ReadFile(configFilePath); err == nil {
-		if err = json.Unmarshal(configData, &ConfigSession); err != nil {
-			return err
+		if err = json.Unmarshal(configData, &configSession); err != nil {
+			return Settings{}, err
 		}
 
 		fmt.Println("Load config success")
-		return nil
+		return Settings{}, nil
 	} else if !os.IsNotExist(err) {
-		return err
+		return Settings{}, err
 	}
 
 	if configData, err := os.ReadFile(oldPath); err == nil {
-		if err = json.Unmarshal(configData, &ConfigSession); err != nil {
-			return err
+		if err = json.Unmarshal(configData, &configSession); err != nil {
+			return Settings{}, err
 		}
 
 		os.MkdirAll(configDir, 0755)
-		if err := SaveConfig(ConfigSession); err != nil {
-			return err
+		if err := SaveConfig(configSession); err != nil {
+			return Settings{}, err
 		}
 
 		fmt.Println("Config migrated to new location from legacy location.")
 
-		return nil
+		return Settings{}, nil
 	} else if !os.IsNotExist(err) {
-		return err
+		return Settings{}, err
 	}
 
-	ConfigSession = Settings{
+	configSession = Settings{
 		JimakuEnable:     true,
 		AutoSelectServer: true,
 		MpvPath:          "",
@@ -62,13 +59,13 @@ func LoadConfig() error {
 		SortType:         []string{"TV", "Movie", "OVA", "Special", "ONA", "Music"},
 	}
 
-	if err := SaveConfig(ConfigSession); err != nil {
-		return err
+	if err := SaveConfig(configSession); err != nil {
+		return Settings{}, err
 	}
 
 	fmt.Println("File config load success.")
 
-	return nil
+	return configSession, nil
 }
 
 func SaveConfig(rawData Settings) error {

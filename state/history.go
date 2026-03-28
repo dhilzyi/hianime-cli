@@ -1,8 +1,6 @@
 package state
 
 import (
-	"github.com/dhilzyi/hianime-cli/cli"
-
 	"encoding/json"
 	"fmt"
 	"os"
@@ -45,13 +43,13 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 	return newHistory
 }
 
-func SaveHistory(rawData []History) error {
+func SaveHistory(rawData []History, dataDir string) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(cli.PathsData.DataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return err
 	}
 
@@ -62,10 +60,8 @@ func SaveHistory(rawData []History) error {
 	return nil
 }
 
-func LoadHistory() ([]History, error) {
+func LoadHistory(dataDir string) ([]History, error) {
 	var historySession []History
-
-	dataDir := cli.PathsData.DataDir
 
 	historyFilePath = filepath.Join(dataDir, "history.json")
 	oldPathHistory := filepath.Join("state", "history.json")
@@ -88,7 +84,7 @@ func LoadHistory() ([]History, error) {
 
 		os.MkdirAll(dataDir, 0755)
 
-		if err := SaveHistory(historySession); err != nil {
+		if err := SaveHistory(historySession, dataDir); err != nil {
 			return nil, err
 		}
 
@@ -99,7 +95,7 @@ func LoadHistory() ([]History, error) {
 		return nil, err
 	}
 
-	if err := SaveHistory(historySession); err != nil {
+	if err := SaveHistory(historySession, dataDir); err != nil {
 		return nil, err
 	}
 
