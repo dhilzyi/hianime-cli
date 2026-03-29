@@ -25,7 +25,7 @@ import (
 
 //go:embed track.lua
 var trackScript string
-var scriptName string = "track.lua"
+var ScriptName string = "track.lua"
 
 func BuildDesktopCommands(
 	cfg config.Settings,
@@ -110,7 +110,7 @@ func BuildDesktopCommands(
 	}
 
 	// track script & debug command
-	scriptLua, err := ensureTrackScript("track.lua", datadir)
+	scriptLua, err := ensureTrackScript(datadir)
 	if err == nil {
 		args = append(args, "--scripts-append="+scriptLua)
 	} else {
@@ -299,14 +299,14 @@ func isWSL() bool {
 	return strings.Contains(content, "microsoft") || strings.Contains(content, "wsl")
 }
 
-func ensureTrackScript(fileName string, dataDir string) (string, error) {
+func ensureTrackScript(dataDir string) (string, error) {
 	scriptDir := filepath.Join(dataDir, "scripts")
 
 	if err := os.MkdirAll(scriptDir, 0755); err != nil {
 		return "", fmt.Errorf("Failed to create directory: %w", err)
 	}
 
-	scriptPath := filepath.Join(scriptDir, fileName)
+	scriptPath := filepath.Join(scriptDir, ScriptName)
 	if _, err := os.Stat(scriptPath); err == nil {
 		fmt.Println("--> Lua script exist")
 	} else if os.IsNotExist(err) {
@@ -314,7 +314,7 @@ func ensureTrackScript(fileName string, dataDir string) (string, error) {
 			return "", err
 		}
 	} else {
-		return "", fmt.Errorf("Error accessing path %s: %w\n", fileName, err)
+		return "", fmt.Errorf("Error accessing path %s: %w\n", ScriptName, err)
 	}
 
 	return scriptPath, nil
@@ -326,4 +326,8 @@ func WriteLuaScript(scriptPath string) error {
 		return fmt.Errorf("Failed to write script :%w", err)
 	}
 	return nil
+}
+
+func TrackScriptPath(dataDir, fileName string) string {
+	return filepath.Join(dataDir, "scripts", fileName)
 }

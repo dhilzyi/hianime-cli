@@ -18,7 +18,20 @@ type Settings struct {
 	LocalVersion     string   `json:"local_version"`
 }
 
-func LoadConfig(configDir string) (Settings, error) {
+func getDefaultConfig(ver string) Settings {
+	return Settings{
+		JimakuEnable:     false,
+		AutoSelectServer: true,
+		MpvPath:          "",
+		EnglishOnly:      true,
+		SortType:         []string{"TV", "Movie", "OVA", "Special", "ONA", "Music"},
+		LocalVersion:     ver,
+	}
+}
+
+func LoadConfig(configDir, ver string) (Settings, error) {
+	defaultConfig := getDefaultConfig(ver)
+
 	var configSession Settings
 	configFilePath = filepath.Join(configDir, "config.json")
 	oldPath := "config.json"
@@ -29,7 +42,7 @@ func LoadConfig(configDir string) (Settings, error) {
 		}
 
 		fmt.Println("Load config success")
-		return Settings{}, nil
+		return configSession, nil
 	} else if !os.IsNotExist(err) {
 		return Settings{}, err
 	}
@@ -39,27 +52,23 @@ func LoadConfig(configDir string) (Settings, error) {
 			return Settings{}, err
 		}
 
-		os.MkdirAll(configDir, 0755)
-		if err := SaveConfig(configSession); err != nil {
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			return Settings{}, err
+		}
+		if err := saveConfig(configSession); err != nil {
 			return Settings{}, err
 		}
 
 		fmt.Println("Config migrated to new location from legacy location.")
 
-		return Settings{}, nil
+		return configSession, nil
 	} else if !os.IsNotExist(err) {
 		return Settings{}, err
 	}
 
-	configSession = Settings{
-		JimakuEnable:     true,
-		AutoSelectServer: true,
-		MpvPath:          "",
-		EnglishOnly:      true,
-		SortType:         []string{"TV", "Movie", "OVA", "Special", "ONA", "Music"},
-	}
+	configSession = defaultConfig
 
-	if err := SaveConfig(configSession); err != nil {
+	if err := saveConfig(configSession); err != nil {
 		return Settings{}, err
 	}
 
@@ -68,7 +77,7 @@ func LoadConfig(configDir string) (Settings, error) {
 	return configSession, nil
 }
 
-func SaveConfig(rawData Settings) error {
+func saveConfig(rawData Settings) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
 		return err
@@ -80,4 +89,17 @@ func SaveConfig(rawData Settings) error {
 
 	return nil
 
+}
+
+func MigrateConfig(oldCfg Settings, ver string) (Settings, error) {
+	defaultConfig := getDefaultConfig(ver)
+	if oldCfg.LocalVersion == "" {
+		oldCfg.LocalVersion = defaultConfig.LocalVersion
+	}
+
+	if err := saveConfig(oldCfg); err != nil {
+		return Settings{}, err
+	}
+
+	return oldCfg, nil
 }

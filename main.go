@@ -14,6 +14,7 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/path"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/internal/version"
 	"github.com/dhilzyi/hianime-cli/player"
 	"github.com/dhilzyi/hianime-cli/ui"
 )
@@ -21,11 +22,12 @@ import (
 var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}
 
 //go:embed version.txt
-var version string
+var embedVersion string
 
 func main() {
+	cleanEmbedVersion := strings.TrimSpace(embedVersion)
 	flags := cli.ParseFlags()
-	cli.HandleFlags(flags, version)
+	cli.HandleFlags(flags, cleanEmbedVersion)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -33,9 +35,18 @@ func main() {
 	if err != nil {
 		fmt.Println("Fail to initialize path: " + err.Error())
 	}
-	configSes, err := config.LoadConfig(appDir.ConfigDir)
+	configSes, err := config.LoadConfig(appDir.ConfigDir, cleanEmbedVersion)
 	if err != nil {
 		fmt.Println("Fail to load config file: " + err.Error())
+	}
+
+	if newCfg, updated, err := version.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
+		log.Println(err)
+	} else {
+		if updated {
+			configSes = newCfg
+			fmt.Printf("Set to new config complete.\n")
+		}
 	}
 
 	history, err := state.LoadHistory(appDir.DataDir)
@@ -267,6 +278,8 @@ seriesLoop:
 							streamData = attempt
 							testedServer = i + 1
 							break
+						} else {
+							log.Println(err)
 						}
 					}
 
