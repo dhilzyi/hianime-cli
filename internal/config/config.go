@@ -93,9 +93,7 @@ func saveConfig(rawData Settings) error {
 
 func MigrateConfig(oldCfg Settings, ver string) (Settings, error) {
 	defaultConfig := getDefaultConfig(ver)
-	if oldCfg.LocalVersion == "" {
-		oldCfg.LocalVersion = defaultConfig.LocalVersion
-	}
+	oldCfg.LocalVersion = defaultConfig.LocalVersion
 
 	if err := saveConfig(oldCfg); err != nil {
 		return Settings{}, err
