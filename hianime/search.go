@@ -10,19 +10,10 @@ import (
 )
 
 func Search(query string) ([]SearchElements, error) {
-	if strings.Contains(query, " ") {
-		words := strings.Fields(query)
-		query = ""
-		for i := range words {
-			if i == len(words)-1 {
-				query += words[i]
-			} else {
-				query += fmt.Sprintf(`%s+`, words[i])
-			}
-		}
-	}
+	words := strings.Fields(query)
+	query = strings.Join(words, "+")
 
-	searchUrl := "https://hianime.to/search?keyword=" + query
+	searchUrl := "https://aniwatchtv.to/search?keyword=" + query
 
 	res, err := http.Get(searchUrl)
 	if err != nil {
@@ -70,8 +61,6 @@ func Search(query string) ([]SearchElements, error) {
 			NumberEpisodes: int16(numEpsInt),
 		})
 	})
-	// searchHtml, err := doc.Html()
-	// os.WriteFile("search.html", []byte(searchHtml), 0644)
 
 	return results, nil
 }

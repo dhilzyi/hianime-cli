@@ -8,6 +8,14 @@ This project was built for educational purposes to practice web scraping and Go.
 - MPV 0.35.0+
 - yt-dlp 2025.12.08+
 
+## Quick Start
+Recommended to install from go language. You need golang program in your system.  
+`go install github.com/dhilzyi/hianime-cli`
+
+Or
+
+Download program in release section.
+
 ## Usage
 - Windows
 `hianime-windows-amd64.exe`
@@ -39,6 +47,7 @@ Field table for explanations.
 | mpv_path | Custom path to your MPV executable (leave empty to use system default). | "" |
 | english_only | Only load English subtitles; ignore other languages. | true |
 | sort_type | Order type for search results. User can change the order as they like. | {"TV", "Movie", "OVA", "Special", "ONA", "Music"} |
+| local_version | State version control for local which for config and lua script | parse from embed.txt|
 
 ## Troubleshoot
 - Jimaku API issues: Get your key from [jimaku.cc](https://jimaku.cc) and add it to environment variables (e.g. JIMAKU_API_KEY=yourkey).
