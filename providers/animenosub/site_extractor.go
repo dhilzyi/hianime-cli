@@ -34,21 +34,26 @@ func (a *AnimeNoSub) Name() string {
 	return "AnimeNoSub"
 }
 
-func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, error) {
+func (a *AnimeNoSub) GetSeriesData() (core.SeriesData, error) {
+	var seriesData core.SeriesData
+	return seriesData, nil
+}
+func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	pageType := getPageType(a.inputUrl)
 
 	var epsList []core.Episode
+	var seriesData *core.SeriesData
 	var err error
 
 	if pageType == "series" {
-		epsList, err = getEpsListFromSeriesPage(a.inputUrl)
+		epsList, seriesData, err = getEpsListFromSeriesPage(a.inputUrl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else if pageType == "episode" {
-		epsList, err = getEpsListFromEpisodePage(a.inputUrl)
+		epsList, seriesData, err = getEpsListFromEpisodePage(a.inputUrl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -57,7 +62,7 @@ func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, error) {
 		a.episodeData[inst.Titles.RomajiTitle] = inst
 	}
 
-	return epsList, nil
+	return epsList, seriesData, nil
 }
 
 func (a *AnimeNoSub) GetServers(episodeName string) ([]core.Server, error) {
@@ -95,16 +100,16 @@ func (a *AnimeNoSub) GetStreamData(keyServer string) (core.StreamData, error) {
 	return streamData, nil
 }
 
-func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, error) {
+func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, *core.SeriesData, error) {
 	resp, err := http.Get(seriesPageUrl)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	epsLister := doc.Find(".eplister")
@@ -134,19 +139,25 @@ func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, error) {
 		seriesEpisode = append(seriesEpisode, instance)
 	})
 
-	return seriesEpisode, nil
+	titleSeries := doc.Find("h1.entry-title")
+	seriesData := &core.SeriesData{
+		SeriesUrl: seriesPageUrl,
+		Titles:    core.Title{EnglishTitle: titleSeries.Text()},
+	}
+
+	return seriesEpisode, seriesData, nil
 }
 
-func getEpsListFromEpisodePage(episodeUrl string) ([]core.Episode, error) {
+func getEpsListFromEpisodePage(episodeUrl string) ([]core.Episode, *core.SeriesData, error) {
 	resp, err := http.Get(episodeUrl)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	epsListElement := doc.Find(".episodelist")
 
@@ -172,7 +183,20 @@ func getEpsListFromEpisodePage(episodeUrl string) ([]core.Episode, error) {
 
 	})
 
-	return episodes, nil
+	h2Element := doc.Find("div.det h2")
+
+	aElement := h2Element.Find("a")
+	seriesUrl, exists := aElement.Attr("href")
+	if !exists {
+		fmt.Println("Info: Failed to find series url")
+	}
+
+	seriesData := &core.SeriesData{
+		SeriesUrl: seriesUrl,
+		Titles:    core.Title{EnglishTitle: h2Element.Text()},
+	}
+
+	return episodes, seriesData, nil
 }
 
 func getServers(episodeUrl string) ([]serverData, error) {

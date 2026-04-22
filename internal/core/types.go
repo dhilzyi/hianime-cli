@@ -1,5 +1,12 @@
 package core
 
+// Series data anime
+type SeriesData struct {
+	Titles    Title
+	AnilistID string `json:"anilist_id"`
+	SeriesUrl string `json:"series_url"`
+}
+
 // Use for building commands for mpv to play.
 type StreamData struct {
 	Url     string
