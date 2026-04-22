@@ -2,6 +2,7 @@ package core
 
 type Provider interface {
 	Name() string
-	CanHandle(url string) bool
-	GetEpisodeList(url string) ([]EpisodeList, error)
+	GetEpisodes() ([]Episode, error)
+	GetServers(string) ([]Server, error)
+	GetStreamData(serverName string) (StreamData, error)
 }

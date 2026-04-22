@@ -28,7 +28,7 @@ type Track struct {
 }
 
 // Individual episode struct for list of series
-type EpisodeList struct {
+type Episode struct {
 	Url string
 
 	Number int
@@ -40,4 +40,10 @@ type Title struct {
 	RomajiTitle  string
 	EnglishTitle string
 	KanjiTitle   string
+}
+
+// Contains server list
+type Server struct {
+	Name string
+	Type string
 }
