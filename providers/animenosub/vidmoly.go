@@ -10,7 +10,7 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
-func GetStreamLink(vidmolyUrl string) (core.StreamData, error) {
+func getStreamLink(vidmolyUrl string) (core.StreamData, error) {
 	resp, err := http.Get(vidmolyUrl)
 	if err != nil {
 		return core.StreamData{}, err
@@ -20,6 +20,7 @@ func GetStreamLink(vidmolyUrl string) (core.StreamData, error) {
 	if err != nil {
 		return core.StreamData{}, err
 	}
+	fmt.Println(string(body))
 
 	re := regexp.MustCompile(`file:\s*\'(.*?)\'`)
 	result := re.FindStringSubmatch(string(body))

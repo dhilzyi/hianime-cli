@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -45,4 +46,19 @@ func getPageType(rawURL string) string {
 	}
 
 	return "unknown"
+}
+
+func getEpsNumber(input string) (int, error) {
+	re := regexp.MustCompile(`\s*Eps\s*(\d)`)
+	matches := re.FindStringSubmatch(input)
+	if len(matches) < 2 {
+		return 0, fmt.Errorf("Error: No match for episode number regexp")
+	}
+	numberRaw := matches[1]
+	numberInt, err := strconv.Atoi(numberRaw)
+	if err != nil {
+		return 0, err
+	}
+
+	return numberInt, nil
 }

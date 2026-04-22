@@ -171,14 +171,19 @@ func getEpsListFromEpisodePage(episodeUrl string) ([]core.Episode, *core.SeriesD
 		if !exists {
 			fmt.Println("Fail to find title attribute in img element")
 		}
+		spanElement := s.Find(".playinfo span")
+		epsNumber, err := getEpsNumber(spanElement.Text())
+		if err != nil {
+			fmt.Println(err)
+		}
 
 		episodes = append(episodes, core.Episode{
 			Url: epsUrl,
 			Titles: core.Title{
 				RomajiTitle: strings.TrimSpace(epsTitle),
 			},
+			Number: epsNumber,
 		})
-
 	})
 
 	h2Element := doc.Find("div.det h2")
@@ -247,15 +252,25 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	if err != nil {
 		return core.StreamData{}, err
 	}
+	var streamdata core.StreamData
+	if strings.Contains(iframeUrl, "vidmoly") {
+		fmt.Println("contain vidmoly")
+		streamdata, err = getStreamLink(iframeUrl)
+		if err != nil {
+			return core.StreamData{}, err
+		}
 
-	embedUrl, err := videosFromUrl(iframeUrl)
-	if err != nil {
-		return core.StreamData{}, err
-	}
+	} else {
+		fmt.Println("not contain vidmoly")
+		embedUrl, err := videosFromUrl(iframeUrl)
+		if err != nil {
+			return core.StreamData{}, err
+		}
 
-	streamdata, err := getEmbedData(embedUrl, iframeUrl)
-	if err != nil {
-		return core.StreamData{}, err
+		streamdata, err = getEmbedData(embedUrl, iframeUrl)
+		if err != nil {
+			return core.StreamData{}, err
+		}
 	}
 
 	return streamdata, nil
