@@ -27,7 +27,7 @@ func typeOrder(t string, listType []string) int {
 	return len(listType)
 }
 
-func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
+func PrintEpisodes(episodes []core.Episode, history state.History) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "\tNO.\tEPS_NAME\tDURATION")
 
@@ -45,11 +45,14 @@ func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
 		}
 
 		var title string
-		if eps.JapaneseTitle == "" {
-			title = eps.EnglishTitle
-		} else {
-			title = eps.JapaneseTitle
+		if eps.Titles.EnglishTitle != "" {
+			title = eps.Titles.EnglishTitle
+		} else if eps.Titles.RomajiTitle != "" {
+			title = eps.Titles.RomajiTitle
+		} else if eps.Titles.KanjiTitle != "" {
+			title = eps.Titles.KanjiTitle
 		}
+
 		fmt.Fprintf(w, "%s\t[%02d]\t%s\t%s\n", prefix, eps.Number, title, timeInfo)
 	}
 	w.Flush()

@@ -3,6 +3,7 @@ package animenosub
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -65,12 +66,8 @@ func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	return epsList, seriesData, nil
 }
 
-func (a *AnimeNoSub) GetServers(episodeName string) ([]core.Server, error) {
-	episodeData, exists := a.episodeData[episodeName]
-	if !exists {
-		return nil, fmt.Errorf("Error: episodedata for that episode does not exist")
-	}
-	rawServers, err := getServers(episodeData.Url)
+func (a *AnimeNoSub) GetServers(selectedEpisode core.Episode) ([]core.Server, error) {
+	rawServers, err := getServers(selectedEpisode.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +141,7 @@ func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, *core.Serie
 		SeriesUrl: seriesPageUrl,
 		Titles:    core.Title{EnglishTitle: titleSeries.Text()},
 	}
+	slices.Reverse(seriesEpisode)
 
 	return seriesEpisode, seriesData, nil
 }

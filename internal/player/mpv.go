@@ -17,9 +17,10 @@ import (
 
 	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/config"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
-	"github.com/dhilzyi/hianime-cli/jimaku"
+	// "github.com/dhilzyi/hianime-cli/jimaku"
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
@@ -29,23 +30,24 @@ var ScriptName string = "track.lua"
 
 func BuildDesktopCommands(
 	cfg config.Settings,
-	metaData hianime.SeriesData,
-	episodeData hianime.Episodes,
-	serverData hianime.ServerList,
-	streamingData hianime.StreamData,
+	metaData core.SeriesData,
+	episodeData core.Episode,
+	serverData core.Server,
+	streamingData core.StreamData,
 	historyData state.History,
 	datadir string,
 	flags cli.FlagsStruct,
 ) []string {
 	// Building title display for mpv
-	displayTitle := fmt.Sprintf("%s [Ep. %d] %s (%s)", metaData.JapaneseName, episodeData.Number, episodeData.JapaneseTitle, serverData.Name)
+	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, episodeData.Titles.EnglishTitle, serverData.Name)
 
 	// Making headers
-	headerFields := []string{
-		fmt.Sprintf("Referer: %s", streamingData.Referer),
-		fmt.Sprintf("User-Agent: %s", streamingData.UserAgent),
-		fmt.Sprintf("Origin: %s", "https://megacloud.blog"),
+	headerFields := []string{}
+
+	for k, v := range streamingData.Headers {
+		headerFields = append(headerFields, fmt.Sprintf("%s: %s", k, v))
 	}
+
 	fullHeaders := strings.Join(headerFields, ",")
 
 	// Main commands
@@ -64,32 +66,32 @@ func BuildDesktopCommands(
 	}
 
 	// Chapter command
-	if streamingData.Intro.End > 0 || streamingData.Outro.Start > 0 {
-		chapterPathFile := CreateChapters(streamingData, historyData, episodeData, flags.Debug)
-		if chapterPathFile != "" {
-			fmt.Println("--> Adding chapters to mpv.")
-			args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
-		}
-	} else {
-		fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
-	}
+	// if streamingData.Chapters.End > 0 || streamingData.Outro.Start > 0 {
+	// 	chapterPathFile := CreateChapters(streamingData, historyData, episodeData, flags.Debug)
+	// 	if chapterPathFile != "" {
+	// 		fmt.Println("--> Adding chapters to mpv.")
+	// 		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
+	// 	}
+	// } else {
+	// 	fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
+	// }
 
 	// Jimaku subtitle command
-	if cfg.JimakuEnable {
-		jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
-		if err != nil {
-			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-			fmt.Printf("--> Skipping Jimaku\n")
-		} else {
-			if len(jimakuList) > 0 {
-				for i := range jimakuList {
-					args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
-				}
-			}
-		}
-	} else {
-		fmt.Printf("--> Skipping Jimaku\n")
-	}
+	// if cfg.JimakuEnable {
+	// 	jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
+	// 	if err != nil {
+	// 		fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
+	// 		fmt.Printf("--> Skipping Jimaku\n")
+	// 	} else {
+	// 		if len(jimakuList) > 0 {
+	// 			for i := range jimakuList {
+	// 				args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
+	// 			}
+	// 		}
+	// 	}
+	// } else {
+	// 	fmt.Printf("--> Skipping Jimaku\n")
+	// }
 
 	// Subs from hianime
 	for _, track := range streamingData.Tracks {
