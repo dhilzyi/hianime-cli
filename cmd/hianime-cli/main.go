@@ -11,6 +11,7 @@ import (
 
 	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/config"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
 	"github.com/dhilzyi/hianime-cli/internal/player"
 	"github.com/dhilzyi/hianime-cli/internal/state"
@@ -20,6 +21,13 @@ import (
 )
 
 var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}
+type InputType int
+
+const (
+	InputURL InputType = iota
+	InputHistoryIndex
+	InputCommand
+)
 
 //go:embed version.txt
 var embedVersion string
@@ -125,84 +133,45 @@ seriesLoop:
 		}
 
 		var historySelect state.History
-		var seriesMetadata hianime.SeriesData
+		var seriesMetadata core.SeriesData
+		var provider core.Provider
+		var episodes []core.Episode
 
-		if strings.Contains(seriesInput, "hianime.to") || strings.Contains(seriesInput, "aniwatchtv.to") {
-			if strings.Contains(seriesInput, "hianime.to") {
-				hianime.BaseUrl = "https://hianime.to"
-			} else {
-				hianime.BaseUrl = "https://aniwatchtv.to"
-			}
+		inputType, index := classifyInput(seriesInput)
+		switch inputType {
+		case InputURL:
+			provider, episodes, historySelect, seriesMetadata, err = handleURLInput(seriesInput, history)
 
-			seriesMetadata, err = hianime.GetSeriesData(seriesInput)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
+		case InputHistoryIndex:
+			provider, episodes, historySelect, seriesMetadata, err = handleHistoryInput(index, history)
 
-			newHistory := state.History{
-				Url:          seriesMetadata.SeriesUrl,
-				JapaneseName: seriesMetadata.JapaneseName,
-				EnglishName:  seriesMetadata.EnglishName,
-				AnilistID:    seriesMetadata.AnilistID,
-				LastEpisode:  1,
-				Episode:      make(map[int]state.EpisodeProgress),
-			}
-			historySelect = newHistory
+		case InputCommand:
+			continue
+		}
 
-			history = state.UpdateHistory(history, newHistory)
-			if err := state.SaveHistory(history, appDir.DataDir); err != nil {
-				log.Println(err)
-			}
-		} else {
-			if seriesInput == "q" {
-				continue
-			}
-
-			seriesInputInt, err := strconv.Atoi(seriesInput)
-			if err != nil {
-				fmt.Println("Invalid input. Enter number or paste url or use search api with `s`")
-				continue
-			}
-
-			historySelect = history[seriesInputInt-1]
-
-			if strings.Contains(historySelect.Url, "hianime.to") {
-				fmt.Println("hianime.to site is down, can't play the url")
-				continue
-				// hianime.BaseUrl = "hianime.to"
-			} else {
-				hianime.BaseUrl = "https://aniwatchtv.to"
-			}
-
-			seriesMetadata, err = hianime.GetSeriesData(historySelect.Url)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-
-			history = state.UpdateHistory(history, historySelect)
-			if err := state.SaveHistory(history, appDir.DataDir); err != nil {
-				log.Println(err)
-			}
+		history = state.UpdateHistory(history, historySelect)
+		if err := state.SaveHistory(history, appDir.DataDir); err != nil {
+			log.Println(err)
 		}
 
 	episodeLoop:
 		for {
-			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.JapaneseName)
+			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.Titles.EnglishTitle)
 
-			episodeCache, exists := cacheEpisodes[seriesMetadata.AnimeID]
-			if !exists {
-				episodeCache, err = hianime.GetEpisodes(seriesMetadata.AnimeID)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-
-				cacheEpisodes[seriesMetadata.AnimeID] = episodeCache
+			if episodes != nil {
 			}
+			// episodes, exists := cacheEpisodes[seriesMetadata.SeriesUrl]
+			// if !exists {
+			// 	episodes, err = hianime.GetEpisodes(seriesMetadata.AnimeID)
+			// 	if err != nil {
+			// 		log.Println(err)
+			// 		continue
+			// 	}
+			//
+			// 	cacheEpisodes[seriesMetadata.AnimeID] = episodes
+			// }
 
-			ui.PrintEpisodes(episodeCache, historySelect)
+			ui.PrintEpisodes(episodes, historySelect)
 
 			fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
 			scanner.Scan()
@@ -215,7 +184,6 @@ seriesLoop:
 			}
 
 			var selectedNum int
-			var err error
 			if episodeInput == "" {
 				selectedNum = historySelect.LastEpisode
 
@@ -227,12 +195,12 @@ seriesLoop:
 				}
 			}
 
-			var servers []hianime.ServerList
+			var servers []core.Server
+			var selectedEpisode core.Episode
 
-			var selectedEpisode hianime.Episodes
-			if selectedNum > 0 && selectedNum <= len(episodeCache) {
-				selectedEpisode = episodeCache[selectedNum-1]
-				servers, err = hianime.GetEpisodeServerId(selectedEpisode.Id)
+			if selectedNum > 0 && selectedNum <= len(episodes) {
+				selectedEpisode = episodes[selectedNum-1]
+				servers, err = provider.GetServers(selectedEpisode)
 				if err != nil {
 					log.Println(err)
 					continue
@@ -245,7 +213,7 @@ seriesLoop:
 					log.Println(err)
 				}
 			} else {
-				fmt.Println("Number is invalid.")
+				fmt.Println("Error: Number is invalid.")
 				continue
 			}
 
@@ -257,8 +225,8 @@ seriesLoop:
 					break
 				}
 
-				var selectedServer hianime.ServerList
-				var streamData hianime.StreamData
+				var selectedServer core.Server
+				var streamData core.StreamData
 
 				if configSes.AutoSelectServer {
 					if testedServer >= len(servers) {
@@ -273,7 +241,7 @@ seriesLoop:
 
 						fmt.Printf("--> Selecting '%s'....\n", selectedServer.Name)
 
-						attempt, err := hianime.GetStreamData(selectedServer.DataId)
+						attempt, err := provider.GetStreamData(selectedServer.Name)
 						if err == nil {
 							streamData = attempt
 							testedServer = i + 1
@@ -313,20 +281,20 @@ seriesLoop:
 					if serverInputInt > 0 && serverInputInt <= len(servers) {
 						selectedServer = servers[serverInputInt-1]
 
-						attempt, err := hianime.GetStreamData(selectedServer.DataId)
+						attempt, err := provider.GetStreamData(selectedServer.Name)
 						if err == nil {
 							streamData = attempt
 						} else {
 							log.Println(err)
 						}
 					} else {
-						fmt.Println("Number is invalid.")
+						fmt.Println("Error: Number is invalid.")
 						continue
 					}
 				}
 
 				if streamData.Url == "" {
-					fmt.Println("Couldn't find streamdata url!")
+					fmt.Println("Error: Couldn't find streamdata url!")
 					continue
 				}
 
