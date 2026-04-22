@@ -104,27 +104,27 @@ func videosFromUrl(videoUrl string) (string, error) {
 	return detailsData.EmbedFrameUrl, nil
 }
 
-func getEmbedData(embedUrl, siteUrl string) error {
+func getEmbedData(embedUrl, siteUrl string) (StreamData, error) {
 	parsedUrl, err := url.Parse(embedUrl)
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 	videoId := path.Base(parsedUrl.Path)
 
 	fingerprintBody, err := buildFingerprintBody()
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 
 	bodyBytes, err := json.Marshal(fingerprintBody)
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 
 	playbackUrl := fmt.Sprintf("https://%s/api/videos/%s/embed/playback", parsedUrl.Host, videoId)
 	playbackReq, err := http.NewRequest("POST", playbackUrl, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 
 	originHost := strings.TrimPrefix(siteUrl, "https://")
@@ -146,37 +146,37 @@ func getEmbedData(embedUrl, siteUrl string) error {
 	client := &http.Client{}
 	playbackResp, err := client.Do(playbackReq)
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 	defer playbackResp.Body.Close()
 
 	var responseData PlaybackResponse
 	if err := json.NewDecoder(playbackResp.Body).Decode(&responseData); err != nil {
-		return err
+		return StreamData{}, err
 	}
 	streamByte, err := decryptPayload(responseData)
 	if err != nil {
-		return err
+		return StreamData{}, err
 	}
 	var source SourceData
 	if err := json.Unmarshal(streamByte, &source); err != nil {
-		return err
+		return StreamData{}, err
 	}
 	if source.Sources[0].URL == "" {
-		return fmt.Errorf("Error: No masterUrl found")
+		return StreamData{}, fmt.Errorf("Error: No masterUrl found")
 	}
 	masterUrl := source.Sources[0].URL
 	header := http.Header{}
 	header.Set("Referer", fmt.Sprintf("https://%s/", parsedUrl.Host))
 	header.Set("Origin", fmt.Sprintf("https://%s", parsedUrl.Host))
-	header.Set("User-Agent", userAgent)
+	// header.Set("User-Agent", userAgent)
 
 	streamData := StreamData{
 		Url:    masterUrl,
 		Header: header,
 	}
 
-	return nil
+	return streamData, nil
 }
 
 func decryptPayload(pb PlaybackResponse) ([]byte, error) {
