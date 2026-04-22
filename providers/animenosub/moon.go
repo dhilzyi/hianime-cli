@@ -132,8 +132,6 @@ func getEmbedData(embedUrl, siteUrl string) (StreamData, error) {
 	originHost = strings.TrimSuffix(originHost, "/")
 	userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-	playbackReq.Header.Set("X-Embed-Origin", originHost)
-
 	playbackReq.Header.Set("Referer", embedUrl)
 	playbackReq.Header.Set("Origin", "https://"+parsedUrl.Host)
 	playbackReq.Header.Set("User-Agent", userAgent)

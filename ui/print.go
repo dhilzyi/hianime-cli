@@ -6,8 +6,8 @@ import (
 	"slices"
 	"text/tabwriter"
 
-	"github.com/dhilzyi/hianime-cli/hianime"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 func prettyDuration(seconds float64) string {

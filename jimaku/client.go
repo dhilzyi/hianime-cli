@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 type Search []SearchElement

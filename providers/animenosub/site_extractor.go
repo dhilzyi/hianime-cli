@@ -65,6 +65,45 @@ func GetSeriesData(url string) ([]seriesData, error) {
 	return seriesEpisode, nil
 }
 
+func GetSeriesDataFromEpisodeUrl(episodeUrl string) ([]seriesData, error) {
+
+	resp, err := http.Get(episodeUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	epsListElement := doc.Find(".episodelist")
+
+	var series []seriesData
+	epsListElement.Find("a").Each(func(i int, s *goquery.Selection) {
+		epsUrl, exists := s.Attr("href")
+		if !exists {
+			fmt.Println("Fail to find href attribute")
+			return
+		}
+		imgElement := s.Find("img")
+		epsTitle, exists := imgElement.Attr("title")
+		if !exists {
+			fmt.Println("Fail to find title attribute in img element")
+		}
+
+		series = append(series, seriesData{
+			url:          epsUrl,
+			episodeTitle: epsTitle,
+		})
+
+	})
+
+	fmt.Println(series)
+
+	return nil, nil
+}
+
 func GetServerLink(url string) ([]server, error) {
 	resp, err := http.Get(url)
 	if err != nil {
