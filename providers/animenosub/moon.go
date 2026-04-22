@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/google/uuid"
 )
 
@@ -70,11 +71,6 @@ type SourceData struct {
 	PosterURL string        `json:"poster_url"`
 }
 
-type StreamData struct {
-	Url    string
-	Header http.Header
-}
-
 func videosFromUrl(videoUrl string) (string, error) {
 	parsedUrl, err := url.Parse(videoUrl)
 	if err != nil {
@@ -104,27 +100,27 @@ func videosFromUrl(videoUrl string) (string, error) {
 	return detailsData.EmbedFrameUrl, nil
 }
 
-func getEmbedData(embedUrl, siteUrl string) (StreamData, error) {
+func getEmbedData(embedUrl, siteUrl string) (core.StreamData, error) {
 	parsedUrl, err := url.Parse(embedUrl)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	videoId := path.Base(parsedUrl.Path)
 
 	fingerprintBody, err := buildFingerprintBody()
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 
 	bodyBytes, err := json.Marshal(fingerprintBody)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 
 	playbackUrl := fmt.Sprintf("https://%s/api/videos/%s/embed/playback", parsedUrl.Host, videoId)
 	playbackReq, err := http.NewRequest("POST", playbackUrl, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 
 	originHost := strings.TrimPrefix(siteUrl, "https://")
@@ -144,34 +140,36 @@ func getEmbedData(embedUrl, siteUrl string) (StreamData, error) {
 	client := &http.Client{}
 	playbackResp, err := client.Do(playbackReq)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	defer playbackResp.Body.Close()
 
 	var responseData PlaybackResponse
 	if err := json.NewDecoder(playbackResp.Body).Decode(&responseData); err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	streamByte, err := decryptPayload(responseData)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	var source SourceData
 	if err := json.Unmarshal(streamByte, &source); err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	if source.Sources[0].URL == "" {
-		return StreamData{}, fmt.Errorf("Error: No masterUrl found")
+		return core.StreamData{}, fmt.Errorf("Error: No masterUrl found")
 	}
 	masterUrl := source.Sources[0].URL
-	header := http.Header{}
-	header.Set("Referer", fmt.Sprintf("https://%s/", parsedUrl.Host))
-	header.Set("Origin", fmt.Sprintf("https://%s", parsedUrl.Host))
+	header := map[string]string{
+		"Referer": fmt.Sprintf("https://%s/", parsedUrl.Host),
+		"Origin":  fmt.Sprintf("https://%s", parsedUrl.Host),
+		// "User-Agent": userAgent,
+	}
 	// header.Set("User-Agent", userAgent)
 
-	streamData := StreamData{
-		Url:    masterUrl,
-		Header: header,
+	streamData := core.StreamData{
+		Url:     masterUrl,
+		Headers: header,
 	}
 
 	return streamData, nil

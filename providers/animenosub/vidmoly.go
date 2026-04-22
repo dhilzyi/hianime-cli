@@ -6,17 +6,19 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+
+	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
-func GetStreamLink(vidmolyUrl string) (StreamData, error) {
+func GetStreamLink(vidmolyUrl string) (core.StreamData, error) {
 	resp, err := http.Get(vidmolyUrl)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 
 	re := regexp.MustCompile(`file:\s*\'(.*?)\'`)
@@ -28,17 +30,17 @@ func GetStreamLink(vidmolyUrl string) (StreamData, error) {
 		fmt.Println("Coulnd't find the url link")
 	}
 
-	header := http.Header{}
+	header := make(map[string]string)
 	parsedUrl, err := url.Parse(vidmolyUrl)
 	if err != nil {
-		return StreamData{}, err
+		return core.StreamData{}, err
 	}
 
-	header.Set("Referer", fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host))
+	header["Referer"] = fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host)
 
-	streaminstance := StreamData{
-		Url:    streamUrl,
-		Header: header,
+	streaminstance := core.StreamData{
+		Url:     streamUrl,
+		Headers: header,
 	}
 
 	return streaminstance, nil
