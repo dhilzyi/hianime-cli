@@ -12,11 +12,11 @@ import (
 	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/path"
+	"github.com/dhilzyi/hianime-cli/internal/player"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/internal/ui"
 	"github.com/dhilzyi/hianime-cli/internal/version"
-	"github.com/dhilzyi/hianime-cli/player"
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
-	"github.com/dhilzyi/hianime-cli/ui"
 )
 
 var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}

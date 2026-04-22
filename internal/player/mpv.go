@@ -18,9 +18,9 @@ import (
 	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/internal/ui"
 	"github.com/dhilzyi/hianime-cli/jimaku"
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
-	"github.com/dhilzyi/hianime-cli/ui"
 )
 
 //go:embed track.lua

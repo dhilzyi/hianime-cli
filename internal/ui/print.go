@@ -6,6 +6,7 @@ import (
 	"slices"
 	"text/tabwriter"
 
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
@@ -94,4 +95,20 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 	}
 
 	w.Flush()
+}
+
+func PrintNewEpisodes(episodes []core.Episode) {
+	for i := range episodes {
+		inst := episodes[i]
+
+		fmt.Printf("%d. %s\n", i+1, inst.Titles.RomajiTitle)
+	}
+}
+
+func PrintServers(servers []core.Server) {
+	for i := range servers {
+		inst := servers[i]
+
+		fmt.Printf("%d. %s: %s\n", i+1, inst.Name, inst.Type)
+	}
 }
