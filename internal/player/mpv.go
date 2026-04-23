@@ -9,8 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +16,9 @@ import (
 	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
+	"github.com/dhilzyi/hianime-cli/internal/jimaku"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
-	// "github.com/dhilzyi/hianime-cli/jimaku"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 //go:embed track.lua
@@ -77,21 +74,21 @@ func BuildDesktopCommands(
 	// }
 
 	// Jimaku subtitle command
-	// if cfg.JimakuEnable {
-	// 	jimakuList, err := jimaku.GetSubsJimaku(metaData, episodeData.Number)
-	// 	if err != nil {
-	// 		fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-	// 		fmt.Printf("--> Skipping Jimaku\n")
-	// 	} else {
-	// 		if len(jimakuList) > 0 {
-	// 			for i := range jimakuList {
-	// 				args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
-	// 			}
-	// 		}
-	// 	}
-	// } else {
-	// 	fmt.Printf("--> Skipping Jimaku\n")
-	// }
+	if cfg.JimakuEnable {
+		jimakuList, err := jimaku.GetSubsJimaku(&metaData, episodeData.Number)
+		if err != nil {
+			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
+			fmt.Printf("--> Skipping Jimaku\n")
+		} else {
+			if len(jimakuList) > 0 {
+				for i := range jimakuList {
+					args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
+				}
+			}
+		}
+	} else {
+		fmt.Printf("--> Skipping Jimaku\n")
+	}
 
 	// Subs from hianime
 	for _, track := range streamingData.Tracks {
@@ -123,57 +120,6 @@ func BuildDesktopCommands(
 		args = append(args, "--v")
 	}
 	return args
-}
-
-// NOTE: For intro and outro in mpv so user can know the timestamps and skip easily.
-func CreateChapters(data hianime.StreamData, historyData state.History, episodeData hianime.Episodes, debug bool) string {
-
-	f, err := os.CreateTemp("", "hianime_chapters_*.txt")
-	if err != nil {
-		fmt.Println("Error while creating temporary file: " + err.Error())
-		return ""
-	}
-
-	contents := ";FFMETADATA1\n"
-
-	writePart := func(start, end int, title string) {
-		contents += "[CHAPTER]\n"
-		contents += "TIMEBASE=1/1\n"
-		contents += fmt.Sprintf("START=%d\n", start)
-		contents += fmt.Sprintf("END=%d\n", end)
-		contents += fmt.Sprintf("title=%s\n\n", title)
-	}
-
-	if data.Intro.Start > 0 || data.Intro.End > 0 {
-		if data.Intro.Start == 0 {
-			writePart(data.Intro.Start, data.Intro.End, "Intro")
-		} else {
-			writePart(0, data.Intro.Start, "Part A")
-			writePart(data.Intro.Start, data.Intro.End, "Intro")
-		}
-	}
-
-	if data.Outro.Start > 0 && data.Outro.End > 0 {
-		writePart(data.Intro.End, data.Outro.Start, "Part B")
-		writePart(data.Outro.Start, data.Outro.End, "Outro")
-
-		// Using exact duration from history if exist
-		episodeProgress, exist := historyData.Episode[episodeData.Number]
-		if exist {
-			if debug {
-				ui.DebugPrint("[CHAPTER]", "History duration exist", debug)
-			}
-			writePart(data.Outro.End, int(episodeProgress.Duration), "Part C")
-		} else {
-			if debug {
-				ui.DebugPrint("[CHAPTER]", "History duration not exist")
-			}
-			writePart(data.Outro.End, 9999999, "Part C")
-		}
-	}
-
-	f.WriteString(contents)
-	return f.Name()
 }
 
 // Now it supports windows and linux automatically, without hardcoding the mpv path. I hope
@@ -272,64 +218,4 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 	timer.Stop()
 
 	return streamStarted, subDelay, lastPos, totalDuration
-}
-
-func GetMpvBinary(mpvPath string) string {
-	if mpvPath != "" {
-		return mpvPath
-	}
-	if runtime.GOOS == "windows" {
-		return "mpv.exe"
-	}
-
-	if runtime.GOOS == "linux" {
-		if isWSL() {
-			return "mpv.exe"
-		}
-		return "mpv"
-	}
-
-	return "mpv"
-}
-
-func isWSL() bool {
-	data, err := os.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	content := strings.ToLower(string(data))
-	return strings.Contains(content, "microsoft") || strings.Contains(content, "wsl")
-}
-
-func ensureTrackScript(dataDir string) (string, error) {
-	scriptDir := filepath.Join(dataDir, "scripts")
-
-	if err := os.MkdirAll(scriptDir, 0755); err != nil {
-		return "", fmt.Errorf("Failed to create directory: %w", err)
-	}
-
-	scriptPath := filepath.Join(scriptDir, ScriptName)
-	if _, err := os.Stat(scriptPath); err == nil {
-		fmt.Println("--> Lua script exist")
-	} else if os.IsNotExist(err) {
-		if err := WriteLuaScript(scriptPath); err != nil {
-			return "", err
-		}
-	} else {
-		return "", fmt.Errorf("Error accessing path %s: %w\n", ScriptName, err)
-	}
-
-	return scriptPath, nil
-}
-
-func WriteLuaScript(scriptPath string) error {
-	err := os.WriteFile(scriptPath, []byte(trackScript), 0644)
-	if err != nil {
-		return fmt.Errorf("Failed to write script :%w", err)
-	}
-	return nil
-}
-
-func TrackScriptPath(dataDir, fileName string) string {
-	return filepath.Join(dataDir, "scripts", fileName)
 }

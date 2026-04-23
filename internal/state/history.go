@@ -12,10 +12,11 @@ type History struct {
 	JapaneseName string                  `json:"jp_name"`
 	EnglishName  string                  `json:"en_name"`
 	LastEpisode  int                     `json:"last_episode"`
-	AnilistID    string                  `json:"anilist_id"`
+	AnilistID    int                     `json:"anilist_id"`
 	SubDelay     float64                 `json:"sub_delay"`
 	Volume       int                     `json:"volume"`
 	Episode      map[int]EpisodeProgress `json:"episode_history"`
+	Provider     string                  `json:"provider"`
 }
 
 type EpisodeProgress struct {
@@ -30,6 +31,8 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 
 	for i := range currentHistory {
 		if currentHistory[i].JapaneseName != targetData.JapaneseName {
+			cleaned = append(cleaned, currentHistory[i])
+		} else if currentHistory[i].EnglishName != targetData.EnglishName {
 			cleaned = append(cleaned, currentHistory[i])
 		}
 	}
