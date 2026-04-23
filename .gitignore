@@ -5,8 +5,10 @@ notes.txt
 *_test.go
 *sh
 *json
+
 TODO.md
 http
+config.json
 
 database.go
 hianime-mpv-go

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 type History struct {
@@ -12,10 +13,11 @@ type History struct {
 	JapaneseName string                  `json:"jp_name"`
 	EnglishName  string                  `json:"en_name"`
 	LastEpisode  int                     `json:"last_episode"`
-	AnilistID    string                  `json:"anilist_id"`
+	AnilistID    int                     `json:"anilist_id"`
 	SubDelay     float64                 `json:"sub_delay"`
 	Volume       int                     `json:"volume"`
 	Episode      map[int]EpisodeProgress `json:"episode_history"`
+	Provider     string                  `json:"provider"`
 }
 
 type EpisodeProgress struct {
@@ -30,6 +32,8 @@ func UpdateHistory(currentHistory []History, targetData History) []History {
 
 	for i := range currentHistory {
 		if currentHistory[i].JapaneseName != targetData.JapaneseName {
+			cleaned = append(cleaned, currentHistory[i])
+		} else if currentHistory[i].EnglishName != targetData.EnglishName {
 			cleaned = append(cleaned, currentHistory[i])
 		}
 	}
@@ -67,7 +71,7 @@ func LoadHistory(dataDir string) ([]History, error) {
 	oldPathHistory := filepath.Join("state", "history.json")
 
 	if data, err := os.ReadFile(historyFilePath); err == nil {
-		if err = json.Unmarshal(data, &historySession); err != nil {
+		if err := json.Unmarshal(data, &historySession); err != nil {
 			return nil, err
 		}
 
@@ -82,7 +86,9 @@ func LoadHistory(dataDir string) ([]History, error) {
 			return nil, err
 		}
 
-		os.MkdirAll(dataDir, 0755)
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			return nil, err
+		}
 
 		if err := SaveHistory(historySession, dataDir); err != nil {
 			return nil, err
@@ -100,4 +106,40 @@ func LoadHistory(dataDir string) ([]History, error) {
 	}
 
 	return historySession, nil
+}
+
+func (h *History) UnmarshalJSON(data []byte) error {
+	type Alias History // avoid recursion
+
+	aux := &struct {
+		AnilistID any `json:"anilist_id"`
+		*Alias
+	}{
+		Alias: (*Alias)(h),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	switch v := aux.AnilistID.(type) {
+	case float64: // normal number
+		h.AnilistID = int(v)
+	case string: // old format
+		if v == "" {
+			h.AnilistID = 0
+			return nil
+		}
+		id, err := strconv.Atoi(v)
+		if err != nil {
+			return err
+		}
+		h.AnilistID = id
+	case nil:
+		h.AnilistID = 0
+	default:
+		return fmt.Errorf("invalid type for anilist_id")
+	}
+
+	return nil
 }

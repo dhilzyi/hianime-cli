@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/dhilzyi/hianime-cli/internal/config"
-	"github.com/dhilzyi/hianime-cli/player"
+	"github.com/dhilzyi/hianime-cli/internal/player"
 )
 
 func Run(dataDir, embedVer string, oldCfg config.Settings) (config.Settings, error) {

@@ -13,28 +13,28 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/internal/anilist"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
-type Search []SearchElement
-type SearchElement struct {
+type Search []searchElement
+type searchElement struct {
 	ID         int64  `json:"id"`
 	AnilistID  int64  `json:"anilist_id"`
 	RomajiName string `json:"name"`
 }
 
-type Files []FileElement
-type FileElement struct {
+type Files []fileElement
+type fileElement struct {
 	Name string `json:"name"`
 	Url  string `json:"url"`
 	Size int64  `json:"size"`
 }
 
-var UserAgent = ""
-var JimakuBaseUrl string = "https://jimaku.cc"
+var jimakuBaseUrl string = "https://jimaku.cc"
 
 // Set your JimakuAPI to environment variable or just put it directly in this variable as a string.
-var JimakuApi string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
+var jimakuApi string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
 
 func downloadFile(url string, filePath string) (string, error) {
 	cleanPath := strings.TrimRight(filePath, ".")
@@ -56,7 +56,7 @@ func downloadFile(url string, filePath string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Bad status: %s", resp.Status)
+		return "", fmt.Errorf("bad status: %s", resp.Status)
 	}
 
 	_, err = io.Copy(out, resp.Body)
@@ -68,7 +68,7 @@ func downloadFile(url string, filePath string) (string, error) {
 }
 
 func getFiles(entry_id, episodeNum int) (Files, error) {
-	urlFiles := fmt.Sprintf("%s/api/entries/%d/files", JimakuBaseUrl, entry_id)
+	urlFiles := fmt.Sprintf("%s/api/entries/%d/files", jimakuBaseUrl, entry_id)
 
 	req, err := http.NewRequest("GET", urlFiles, nil)
 	if err != nil {
@@ -80,9 +80,7 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 	req.URL.RawQuery = query.Encode()
 
-	fmt.Println(req.URL.RawPath)
-
-	req.Header.Add("Authorization", JimakuApi)
+	req.Header.Add("Authorization", jimakuApi)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -107,24 +105,18 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 }
 
-func getIdJimaku(seriesData hianime.SeriesData) (Search, error) {
-	urlSearch := fmt.Sprintf("%s/api/entries/search", JimakuBaseUrl)
+func getIdJimaku(anilistID int) (Search, error) {
+	urlSearch := fmt.Sprintf("%s/api/entries/search", jimakuBaseUrl)
 
 	req, err := http.NewRequest("GET", urlSearch, nil)
 	if err != nil {
 		return Search{}, err
 	}
-	req.Header.Add("Authorization", JimakuApi)
+	req.Header.Add("Authorization", jimakuApi)
 
 	query := req.URL.Query()
 	query.Add("anime", "true")
-
-	if seriesData.AnilistID != "" {
-		query.Add("anilist_id", seriesData.AnilistID)
-	} else {
-		fmt.Println("--> AnilistID not found. Processing with query method.")
-		query.Add("query", seriesData.JapaneseName)
-	}
+	query.Add("anilist_id", fmt.Sprintf("%d", anilistID))
 
 	req.URL.RawQuery = query.Encode()
 
@@ -137,7 +129,7 @@ func getIdJimaku(seriesData hianime.SeriesData) (Search, error) {
 
 	var data Search
 	if res.StatusCode != http.StatusOK {
-		return Search{}, fmt.Errorf("Bad status when querying: %s", res.Status)
+		return Search{}, fmt.Errorf("bad status when querying: %s", res.Status)
 	}
 
 	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
@@ -145,23 +137,29 @@ func getIdJimaku(seriesData hianime.SeriesData) (Search, error) {
 	}
 
 	if len(data) == 0 {
-		return Search{}, fmt.Errorf("--! Nothing found in Jimaku.")
+		return Search{}, fmt.Errorf("--! Nothing found in Jimaku")
 	}
 
 	if data[0].ID <= 0 {
-		return Search{}, fmt.Errorf("Invalid ID found.")
+		return Search{}, fmt.Errorf("invalid jimaku id")
 	}
 
 	return data, nil
 }
 
-func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, error) {
-	if JimakuApi == "" {
-		return []string{}, fmt.Errorf("No Jimaku API found in the enviroment variable.")
+func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error) {
+	if jimakuApi == "" {
+		return []string{}, fmt.Errorf("no Jimaku API found in the enviroment variable")
 	}
-	fmt.Println("\n--> JimakuApiKey found. Querying into the Jimaku api....")
+	fmt.Println("\n--> jimakuApiKey found. Querying into the Jimaku api....")
 
-	data, err := getIdJimaku(seriesData)
+	if seriesData.AnilistID == 0 {
+		if err := anilist.FillSeriesData(seriesData); err != nil {
+			return nil, err
+		}
+	}
+
+	data, err := getIdJimaku(seriesData.AnilistID)
 	if err != nil {
 		return []string{}, err
 	}
@@ -196,7 +194,7 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 
 		ext := strings.ToLower(path.Ext(ins.Url))
 		if ext != ".srt" && ext != ".ass" {
-			fmt.Printf("Skipping unsupported format: %s (extension %s)\n", ins.Url, ext)
+			fmt.Printf("Info: Skipping unsupported format: %s (ext %s)\n", ins.Url, ext)
 			continue
 		}
 
@@ -216,7 +214,8 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 		} else if os.IsNotExist(err) {
 			fmt.Printf("	Downloading: %s\n", filename)
 		} else {
-			fmt.Printf("Error accessing path %s: %v\n", fullPath, err)
+			fmt.Printf("Error: accessing path %s: %v\n", fullPath, err)
+			continue
 		}
 
 		downloadedPath, err := downloadFile(ins.Url, fullPath)
@@ -229,7 +228,7 @@ func GetSubsJimaku(seriesData hianime.SeriesData, episodeNum int) ([]string, err
 	}
 
 	if len(nameLists) == 0 {
-		return nameLists, fmt.Errorf("--! Failed to retrieve anything.")
+		return nameLists, fmt.Errorf("--! Failed to retrieve anything")
 	}
 
 	return nameLists, nil

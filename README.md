@@ -1,32 +1,59 @@
 ## Description
-A CLI program that can plays Hianime URLs directly in MPV. It automatically fetches matching subtitles from the [Jimaku API](https://github.com/Rapptz/jimaku).
+A simple CLI tool to stream anime from supported providers. It's also integrated from website [Jimaku](https://github.com/Rapptz/jimaku).
 
 ## Disclaimer
 This project was built for educational purposes to practice web scraping and Go. I do not host any content, nor am I affiliated with the services being scraped. This tool simply accesses publicly available data. Please use it responsibly and support the original creators.
 
 ## Requirements
-- MPV 0.35.0+
-- yt-dlp 2025.12.08+
+- MPV >= 0.35.0
+- yt-dlp >= 2025.12.08
 
-## Quick Start
-Recommended to install from go language. You need golang program in your system.  
-`go install github.com/dhilzyi/hianime-cli`
+## Installation
 
-Or
+### Option 1 — Install with Go (recommended)
 
-Download program in release section.
+```bash
+go install github.com/dhilzyi/hianime-cli/cmd/hianime-cli@latest
+```
 
-## Usage
-- Windows
-`hianime-windows-amd64.exe`
-- Linux
-`./hianime-linux-amd64`
+This will install hianime-cli into your $GOPATH/bin or $HOME/go/bin.
 
-## Build
-- Windows
-`GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o hianime-windows-amd64.exe`
-- Linux
-`GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o hianime-linux-amd64`
+### Option 2 — Download prebuilt binary
+
+Download from the Releases section and run it directly.
+### Usage
+
+After installation:
+
+```bash
+hianime-cli
+```
+
+Or if running manually:
+#### Windows
+
+```bash
+hianime-windows-amd64.exe
+```
+
+#### Linux
+
+```bash
+./hianime-linux-amd64
+```
+
+### Build from source
+#### Windows
+
+```bash
+GOOS=windows go build -C ./cmd/hianime-cli -ldflags="-s -w" -o hianime-windows-amd64.exe
+```
+#### Linux
+
+```bash
+GOOS=linux go build -C ./cmd/hianime-cli -ldflags="-s -w" -o hianime-linux-amd64
+```
+
 
 ## Config
 User can customize to their personal preference in `config.json`
@@ -54,6 +81,9 @@ Field table for explanations.
 
 ## Acknowledgment
 - [MediaVanced](https://github.com/yogesh-hacker/MediaVanced)
+    Help me to build host video extractor.
+- [anime-extensions](https://github.com/yuzono/anime-extensions)
+    Inspirator and also been helpful for reference how to scrape the sites.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

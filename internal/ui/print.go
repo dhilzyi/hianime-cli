@@ -6,8 +6,9 @@ import (
 	"slices"
 	"text/tabwriter"
 
-	"github.com/dhilzyi/hianime-cli/hianime"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 func prettyDuration(seconds float64) string {
@@ -26,7 +27,7 @@ func typeOrder(t string, listType []string) int {
 	return len(listType)
 }
 
-func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
+func PrintEpisodes(episodes []core.Episode, history state.History) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "\tNO.\tEPS_NAME\tDURATION")
 
@@ -44,11 +45,14 @@ func PrintEpisodes(episodes []hianime.Episodes, history state.History) {
 		}
 
 		var title string
-		if eps.JapaneseTitle == "" {
-			title = eps.EnglishTitle
-		} else {
-			title = eps.JapaneseTitle
+		if eps.Titles.EnglishTitle != "" {
+			title = eps.Titles.EnglishTitle
+		} else if eps.Titles.RomajiTitle != "" {
+			title = eps.Titles.RomajiTitle
+		} else if eps.Titles.KanjiTitle != "" {
+			title = eps.Titles.KanjiTitle
 		}
+
 		fmt.Fprintf(w, "%s\t[%02d]\t%s\t%s\n", prefix, eps.Number, title, timeInfo)
 	}
 	w.Flush()
@@ -93,5 +97,46 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 		)
 	}
 
+	w.Flush()
+}
+
+func PrintServers(servers []core.Server) {
+	for i := range servers {
+		inst := servers[i]
+
+		fmt.Printf("%d. %s: %s\n", i+1, inst.Name, inst.Type)
+	}
+}
+
+func PrintRecentHistory(history []state.History) {
+	fmt.Printf("\n--- Recent History ---\n\n")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+
+	var title string
+	var provider string
+	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tPROVIDER")
+
+	for i := range history {
+		inst := history[i]
+		if inst.EnglishName != "" {
+			title = inst.EnglishName
+		}
+		if inst.JapaneseName != "" {
+			title = inst.JapaneseName
+		}
+		if inst.Provider != "" {
+			provider = inst.Provider
+		} else {
+			provider = "N/A"
+		}
+
+		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\n",
+			i+1,
+			title,
+			"N/A",
+			provider,
+		)
+
+	}
 	w.Flush()
 }
