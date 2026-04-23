@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/cli"
-	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
@@ -163,12 +162,7 @@ seriesLoop:
 		provider := result.Provider
 		episodes := result.Episodes
 		seriesMetadata := result.SeriesData
-		if seriesMetadata.AnilistID == 0 {
-			if err := anilist.FillSeriesData(&seriesMetadata); err != nil {
-				log.Println(err)
-			}
-			fmt.Println("Info: Successfully filling missing metadata to seriesdata")
-		}
+
 		if selectedHistory == nil {
 			selectedHistory, err = findOrCreateHistory(history, seriesMetadata)
 			if err != nil {

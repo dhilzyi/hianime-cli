@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
+	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/providers/animenosub"
@@ -109,18 +111,28 @@ func findOrCreateHistory(histories []state.History, seriesdata core.SeriesData) 
 		hist := &histories[i]
 
 		if seriesdata.AnilistID != 0 && hist.AnilistID == seriesdata.AnilistID {
+			fmt.Println("Info: history hit by anilistID")
 			return hist, nil
 		}
 
 		if seriesdata.Titles.EnglishTitle != "" &&
 			hist.EnglishName == seriesdata.Titles.EnglishTitle {
+			fmt.Println("Info: history hit by english title")
 			return hist, nil
 		}
 
 		if seriesdata.Titles.RomajiTitle != "" &&
 			hist.JapaneseName == seriesdata.Titles.RomajiTitle {
+			fmt.Println("Info: history hit by romaji title")
 			return hist, nil
 		}
+	}
+
+	if seriesdata.AnilistID == 0 {
+		if err := anilist.FillSeriesData(&seriesdata); err != nil {
+			log.Println(err)
+		}
+		fmt.Println("Info: successfully filling missing metadata to seriesdata from anilist")
 	}
 
 	newHistory := &state.History{

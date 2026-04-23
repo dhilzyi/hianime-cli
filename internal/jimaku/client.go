@@ -117,7 +117,6 @@ func getIdJimaku(anilistID int) (Search, error) {
 	query := req.URL.Query()
 	query.Add("anime", "true")
 	query.Add("anilist_id", fmt.Sprintf("%d", anilistID))
-	fmt.Println(query)
 
 	req.URL.RawQuery = query.Encode()
 
