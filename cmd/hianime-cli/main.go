@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/cli"
+	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
@@ -20,7 +21,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
-var cacheEpisodes = make(map[string][]hianime.Episodes) // "AnimeID" : {{Eps: 1, ...}, ...}
 type InputType int
 
 const (
@@ -62,14 +62,17 @@ func main() {
 		fmt.Println("Fail to load history file: " + err.Error())
 	}
 
+	// Using anilistID as a key for the cache
+	// and using unique clean path from url itself
+	cache := Cache{
+		bySlug: make(map[string]*CacheEntry),
+		byID:   make(map[int]*CacheEntry),
+	}
+
 seriesLoop:
 	for {
 		if len(history) > 0 {
-			fmt.Printf("\n--- Recent History ---\n\n")
-			for i := range history {
-				fmt.Printf(" [%d] %s\n", i+1, history[i].JapaneseName)
-			}
-
+			ui.PrintRecentHistory(history)
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}
@@ -132,24 +135,49 @@ seriesLoop:
 
 		}
 
-		var historySelect state.History
-		var seriesMetadata core.SeriesData
-		var provider core.Provider
-		var episodes []core.Episode
+		var url string
+		var selectedHistory *state.History
 
 		inputType, index := classifyInput(seriesInput)
 		switch inputType {
 		case InputURL:
-			provider, episodes, historySelect, seriesMetadata, err = handleURLInput(seriesInput, history)
+			url = seriesInput
 
 		case InputHistoryIndex:
-			provider, episodes, historySelect, seriesMetadata, err = handleHistoryInput(index, history)
+			selectedHistory, err = getHistoryByIndex(history, index)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			url = selectedHistory.Url
 
 		case InputCommand:
 			continue
 		}
 
-		history = state.UpdateHistory(history, historySelect)
+		result, err := ResolveInput(ResolveParams{URL: url}, &cache)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		provider := result.Provider
+		episodes := result.Episodes
+		seriesMetadata := result.SeriesData
+		if seriesMetadata.AnilistID == 0 {
+			if err := anilist.FillSeriesData(&seriesMetadata); err != nil {
+				log.Println(err)
+			}
+			fmt.Println("Info: Successfully filling missing metadata to seriesdata")
+		}
+		if selectedHistory == nil {
+			fmt.Println("Hello")
+			selectedHistory, err = findOrCreateHistory(history, seriesMetadata)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+
+		history = state.UpdateHistory(history, *selectedHistory)
 		if err := state.SaveHistory(history, appDir.DataDir); err != nil {
 			log.Println(err)
 		}
@@ -157,21 +185,11 @@ seriesLoop:
 	episodeLoop:
 		for {
 			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.Titles.EnglishTitle)
-
-			if episodes != nil {
+			if len(episodes) < 1 {
+				fmt.Println("Error: No episodes data is found")
+				break
 			}
-			// episodes, exists := cacheEpisodes[seriesMetadata.SeriesUrl]
-			// if !exists {
-			// 	episodes, err = hianime.GetEpisodes(seriesMetadata.AnimeID)
-			// 	if err != nil {
-			// 		log.Println(err)
-			// 		continue
-			// 	}
-			//
-			// 	cacheEpisodes[seriesMetadata.AnimeID] = episodes
-			// }
-
-			ui.PrintEpisodes(episodes, historySelect)
+			ui.PrintEpisodes(episodes, *selectedHistory)
 
 			fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
 			scanner.Scan()
@@ -185,7 +203,7 @@ seriesLoop:
 
 			var selectedNum int
 			if episodeInput == "" {
-				selectedNum = historySelect.LastEpisode
+				selectedNum = selectedHistory.LastEpisode
 
 			} else {
 				selectedNum, err = strconv.Atoi(episodeInput)
@@ -206,9 +224,9 @@ seriesLoop:
 					continue
 				}
 
-				historySelect.LastEpisode = selectedNum
+				selectedHistory.LastEpisode = selectedNum
 
-				history = state.UpdateHistory(history, historySelect)
+				history = state.UpdateHistory(history, *selectedHistory)
 				if err := state.SaveHistory(history, appDir.DataDir); err != nil {
 					log.Println(err)
 				}
@@ -300,23 +318,23 @@ seriesLoop:
 
 				// get mpv path automatically according user platforms.
 				binName := player.GetMpvBinary(configSes.MpvPath)
-				desktopCommands := player.BuildDesktopCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, historySelect, appDir.DataDir, flags)
+				desktopCommands := player.BuildDesktopCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
 
 				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands, flags.MpvVerbose)
 
 				if success {
-					historySelect.SubDelay = subDelay
+					selectedHistory.SubDelay = subDelay
 
-					if historySelect.Episode == nil {
-						historySelect.Episode = make(map[int]state.EpisodeProgress)
+					if selectedHistory.Episode == nil {
+						selectedHistory.Episode = make(map[int]state.EpisodeProgress)
 					}
 
-					historySelect.Episode[selectedEpisode.Number] = state.EpisodeProgress{
+					selectedHistory.Episode[selectedEpisode.Number] = state.EpisodeProgress{
 						Position: lastPos,
 						Duration: totalDur,
 					}
 
-					history = state.UpdateHistory(history, historySelect)
+					history = state.UpdateHistory(history, *selectedHistory)
 					if err := state.SaveHistory(history, appDir.DataDir); err != nil {
 						log.Println(err)
 					}

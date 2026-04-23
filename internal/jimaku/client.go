@@ -81,8 +81,6 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 	req.URL.RawQuery = query.Encode()
 
-	fmt.Println(req.URL.RawPath)
-
 	req.Header.Add("Authorization", jimakuApi)
 
 	res, err := http.DefaultClient.Do(req)
@@ -162,7 +160,6 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 			return nil, err
 		}
 	}
-	fmt.Println(seriesData.AnilistID)
 
 	data, err := getIdJimaku(seriesData.AnilistID)
 	if err != nil {

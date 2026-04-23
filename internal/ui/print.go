@@ -100,18 +100,43 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 	w.Flush()
 }
 
-func PrintNewEpisodes(episodes []core.Episode) {
-	for i := range episodes {
-		inst := episodes[i]
-
-		fmt.Printf("%d. %s\n", i+1, inst.Titles.RomajiTitle)
-	}
-}
-
 func PrintServers(servers []core.Server) {
 	for i := range servers {
 		inst := servers[i]
 
 		fmt.Printf("%d. %s: %s\n", i+1, inst.Name, inst.Type)
 	}
+}
+
+func PrintRecentHistory(history []state.History) {
+	fmt.Printf("\n--- Recent History ---\n\n")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+
+	var title string
+	var provider string
+	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tPROVIDER")
+
+	for i := range history {
+		inst := history[i]
+		if inst.EnglishName != "" {
+			title = inst.EnglishName
+		}
+		if inst.JapaneseName != "" {
+			title = inst.JapaneseName
+		}
+		if inst.Provider != "" {
+			provider = inst.Provider
+		} else {
+			provider = "N/A"
+		}
+
+		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\n",
+			i+1,
+			title,
+			"N/A",
+			provider,
+		)
+
+	}
+	w.Flush()
 }
