@@ -72,14 +72,33 @@ func (a *AnimeNoSub) GetServers(selectedEpisode core.Episode) ([]core.Server, er
 		return nil, err
 	}
 
-	var serversData []core.Server
+	var rawGroup []core.Server
+	var subGroup []core.Server
+
 	for _, server := range rawServers {
-		serversData = append(serversData, core.Server{
+		// skipping the Nova server for now
+		// since i don't know how to scrape them yet or probably won't
+		if strings.Contains(server.ServerName, "Nova") {
+			continue
+		}
+		s := core.Server{
 			Name: server.ServerName,
 			Type: server.Type,
-		})
+		}
+
 		a.serverData[server.ServerName] = server.Value
+
+		switch server.Type {
+		case "RAW":
+			rawGroup = append(rawGroup, s)
+		case "SUB":
+			subGroup = append(subGroup, s)
+		default:
+			subGroup = append(subGroup, s)
+		}
 	}
+
+	serversData := append(rawGroup, subGroup...)
 
 	return serversData, nil
 }

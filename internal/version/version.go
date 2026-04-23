@@ -11,7 +11,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const versionURL = "https://raw.githubusercontent.com/dhilzyi/hianime-cli/main/version.txt"
+const versionURL = "https://raw.githubusercontent.com/dhilzyi/hianime-cli/main/cmd/hianime-cli/version.txt"
 
 func Run(embedVer, dataDir string, cfg config.Settings) (config.Settings, bool, error) {
 	latestVer, err := getLatestVersion()
