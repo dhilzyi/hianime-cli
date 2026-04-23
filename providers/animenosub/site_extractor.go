@@ -254,14 +254,12 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	}
 	var streamdata core.StreamData
 	if strings.Contains(iframeUrl, "vidmoly") {
-		fmt.Println("contain vidmoly")
 		streamdata, err = getStreamLink(iframeUrl)
 		if err != nil {
 			return core.StreamData{}, err
 		}
 
 	} else {
-		fmt.Println("not contain vidmoly")
 		embedUrl, err := videosFromUrl(iframeUrl)
 		if err != nil {
 			return core.StreamData{}, err

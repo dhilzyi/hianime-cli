@@ -170,7 +170,6 @@ seriesLoop:
 			fmt.Println("Info: Successfully filling missing metadata to seriesdata")
 		}
 		if selectedHistory == nil {
-			fmt.Println("Hello")
 			selectedHistory, err = findOrCreateHistory(history, seriesMetadata)
 			if err != nil {
 				log.Println(err)
