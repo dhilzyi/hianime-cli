@@ -15,7 +15,7 @@ func FillSeriesData(seriesData *core.SeriesData) error {
 	} else if seriesData.Titles.KanjiTitle != "" {
 		title = seriesData.Titles.KanjiTitle
 	} else {
-		return fmt.Errorf("Error: All titles are empty and query can not be process")
+		return fmt.Errorf("error: All titles are empty and query can not be process")
 	}
 
 	graphresp, err := getAnilistData(title)

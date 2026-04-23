@@ -26,7 +26,7 @@ func getIframeSrc(rawhtml string) (string, error) {
 		return src, nil
 	}
 
-	return "", fmt.Errorf("Error: No src found")
+	return "", fmt.Errorf("error: No src found")
 }
 
 func getPageType(rawURL string) string {
@@ -52,7 +52,7 @@ func getEpsNumber(input string) (int, error) {
 	re := regexp.MustCompile(`\s*Eps\s*(\d)`)
 	matches := re.FindStringSubmatch(input)
 	if len(matches) < 2 {
-		return 0, fmt.Errorf("Error: No match for episode number regexp")
+		return 0, fmt.Errorf("error: No match for episode number regexp")
 	}
 	numberRaw := matches[1]
 	numberInt, err := strconv.Atoi(numberRaw)

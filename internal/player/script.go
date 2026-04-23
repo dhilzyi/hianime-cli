@@ -10,7 +10,7 @@ func ensureTrackScript(dataDir string) (string, error) {
 	scriptDir := filepath.Join(dataDir, "scripts")
 
 	if err := os.MkdirAll(scriptDir, 0755); err != nil {
-		return "", fmt.Errorf("Failed to create directory: %w", err)
+		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	scriptPath := filepath.Join(scriptDir, ScriptName)
@@ -21,7 +21,7 @@ func ensureTrackScript(dataDir string) (string, error) {
 			return "", err
 		}
 	} else {
-		return "", fmt.Errorf("Error accessing path %s: %w\n", ScriptName, err)
+		return "", fmt.Errorf("error accessing path %s: %w", ScriptName, err)
 	}
 
 	return scriptPath, nil
@@ -30,7 +30,7 @@ func ensureTrackScript(dataDir string) (string, error) {
 func WriteLuaScript(scriptPath string) error {
 	err := os.WriteFile(scriptPath, []byte(trackScript), 0644)
 	if err != nil {
-		return fmt.Errorf("Failed to write script :%w", err)
+		return fmt.Errorf("failed to write script :%w", err)
 	}
 	return nil
 }

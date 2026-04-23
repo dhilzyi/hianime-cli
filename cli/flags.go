@@ -29,7 +29,7 @@ func ParseFlags() FlagsStruct {
 }
 
 func HandleFlags(flags FlagsStruct, version string) {
-	if flags.Version == true {
+	if flags.Version {
 		fmt.Println(version)
 		os.Exit(0)
 	}

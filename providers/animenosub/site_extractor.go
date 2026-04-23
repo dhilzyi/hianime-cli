@@ -87,7 +87,7 @@ func (a *AnimeNoSub) GetServers(selectedEpisode core.Episode) ([]core.Server, er
 func (a *AnimeNoSub) GetStreamData(keyServer string) (core.StreamData, error) {
 	value, exists := a.serverData[keyServer]
 	if !exists {
-		return core.StreamData{}, fmt.Errorf("Error: server name is not in the data")
+		return core.StreamData{}, fmt.Errorf("error: server name is not in the data")
 	}
 	streamData, err := getStreamDataFromValue(value)
 	if err != nil {

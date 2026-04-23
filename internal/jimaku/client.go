@@ -31,7 +31,6 @@ type fileElement struct {
 	Size int64  `json:"size"`
 }
 
-var userAgent = ""
 var jimakuBaseUrl string = "https://jimaku.cc"
 
 // Set your JimakuAPI to environment variable or just put it directly in this variable as a string.
@@ -57,7 +56,7 @@ func downloadFile(url string, filePath string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Bad status: %s", resp.Status)
+		return "", fmt.Errorf("bad status: %s", resp.Status)
 	}
 
 	_, err = io.Copy(out, resp.Body)
@@ -131,7 +130,7 @@ func getIdJimaku(anilistID int) (Search, error) {
 
 	var data Search
 	if res.StatusCode != http.StatusOK {
-		return Search{}, fmt.Errorf("Bad status when querying: %s", res.Status)
+		return Search{}, fmt.Errorf("bad status when querying: %s", res.Status)
 	}
 
 	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
@@ -139,11 +138,11 @@ func getIdJimaku(anilistID int) (Search, error) {
 	}
 
 	if len(data) == 0 {
-		return Search{}, fmt.Errorf("--! Nothing found in Jimaku.")
+		return Search{}, fmt.Errorf("--! Nothing found in Jimaku")
 	}
 
 	if data[0].ID <= 0 {
-		return Search{}, fmt.Errorf("Invalid ID found.")
+		return Search{}, fmt.Errorf("invalid jimaku id")
 	}
 
 	return data, nil
@@ -151,7 +150,7 @@ func getIdJimaku(anilistID int) (Search, error) {
 
 func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error) {
 	if jimakuApi == "" {
-		return []string{}, fmt.Errorf("No Jimaku API found in the enviroment variable.")
+		return []string{}, fmt.Errorf("no Jimaku API found in the enviroment variable")
 	}
 	fmt.Println("\n--> jimakuApiKey found. Querying into the Jimaku api....")
 
@@ -230,7 +229,7 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 	}
 
 	if len(nameLists) == 0 {
-		return nameLists, fmt.Errorf("--! Failed to retrieve anything.")
+		return nameLists, fmt.Errorf("--! Failed to retrieve anything")
 	}
 
 	return nameLists, nil

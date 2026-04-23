@@ -157,7 +157,7 @@ func getEmbedData(embedUrl, siteUrl string) (core.StreamData, error) {
 		return core.StreamData{}, err
 	}
 	if source.Sources[0].URL == "" {
-		return core.StreamData{}, fmt.Errorf("Error: No masterUrl found")
+		return core.StreamData{}, fmt.Errorf("error: No masterUrl found")
 	}
 	masterUrl := source.Sources[0].URL
 	header := map[string]string{
