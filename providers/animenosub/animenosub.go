@@ -11,16 +11,18 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
-type serverData struct {
-	Type       string
-	ServerName string
-	Value      string
-}
+// original site: 'animenosub.to'
 
 type AnimeNoSub struct {
 	serverData  map[string]string
 	episodeData map[string]core.Episode
 	inputUrl    string
+}
+
+type serverData struct {
+	Type       string
+	ServerName string
+	Value      string
 }
 
 func New(rawUrl string) *AnimeNoSub {

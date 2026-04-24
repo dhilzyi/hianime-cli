@@ -40,7 +40,7 @@ type fingerprintData struct {
 	Confidence float64 `json:"confidence"`
 }
 
-type PlaybackResponse struct {
+type playbackResponse struct {
 	Playback struct {
 		Algorithm   string    `json:"algorithm"`
 		Iv          string    `json:"iv"`
@@ -57,7 +57,7 @@ type PlaybackResponse struct {
 	} `json:"playback"`
 }
 
-type SourceData struct {
+type sourceData struct {
 	Sources []struct {
 		Quality     string `json:"quality"`
 		Label       string `json:"label"`
@@ -144,7 +144,7 @@ func getEmbedData(embedUrl, siteUrl string) (core.StreamData, error) {
 	}
 	defer playbackResp.Body.Close()
 
-	var responseData PlaybackResponse
+	var responseData playbackResponse
 	if err := json.NewDecoder(playbackResp.Body).Decode(&responseData); err != nil {
 		return core.StreamData{}, err
 	}
@@ -152,7 +152,7 @@ func getEmbedData(embedUrl, siteUrl string) (core.StreamData, error) {
 	if err != nil {
 		return core.StreamData{}, err
 	}
-	var source SourceData
+	var source sourceData
 	if err := json.Unmarshal(streamByte, &source); err != nil {
 		return core.StreamData{}, err
 	}
@@ -175,7 +175,7 @@ func getEmbedData(embedUrl, siteUrl string) (core.StreamData, error) {
 	return streamData, nil
 }
 
-func decryptPayload(pb PlaybackResponse) ([]byte, error) {
+func decryptPayload(pb playbackResponse) ([]byte, error) {
 	keyPart1, err := base64.RawURLEncoding.DecodeString(pb.Playback.KeyParts[0])
 	if err != nil {
 		return nil, err
