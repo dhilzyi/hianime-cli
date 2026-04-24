@@ -1,11 +1,19 @@
 package kuudere
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
+	"strings"
 
+	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 )
 
@@ -51,6 +59,11 @@ type Metadata struct {
 	Encoding  string `json:"encoding"`
 }
 
+type TokenApiResponse struct {
+	VideoB64 string `json:"video_b64"`
+	KeyFrag  string `json:"key_frag"`
+}
+
 func ExtractPayload(html string) (string, error) {
 	pattern := `data:\s*\[null,null,(\{.*?\})\],\s*form:\snull`
 	re := regexp.MustCompile(pattern)
@@ -80,7 +93,7 @@ func ParseToJson5(raw string) (RawJson5, error) {
 	return result, nil
 }
 
-func Decrypt(data RawJson5) (*CryptoData, error) {
+func buildCryptoData(data RawJson5) (*CryptoData, error) {
 	primary := sha256Hex(data.Data.ObfuscationSeed)
 	secondary := sha256Hex(primary)
 
@@ -129,11 +142,24 @@ func Decrypt(data RawJson5) (*CryptoData, error) {
 		return nil, fmt.Errorf("object not a map")
 	}
 
-	key, _ := getString(object[dynamic["key_field"]])
-	iv, _ := getString(object[dynamic["iv_field"]])
+	key, ok := getString(object[dynamic["key_field"]])
+	if !ok {
+		return nil, fmt.Errorf("key not in map")
+	}
 
-	secondaryKey, _ := getString(data.RawData[dynamic["secondary_key_field"]])
-	token, _ := getString(data.RawData[dynamic["token_field"]])
+	iv, ok := getString(object[dynamic["iv_field"]])
+	if !ok {
+		return nil, fmt.Errorf("iv not in map")
+	}
+
+	secondaryKey, ok := getString(data.RawData[dynamic["secondary_key_field"]])
+	if !ok {
+		return nil, fmt.Errorf("secondaryKey is not in the data")
+	}
+	token, ok := getString(data.RawData[dynamic["token_field"]])
+	if !ok {
+		return nil, fmt.Errorf("token is not in the data")
+	}
 
 	metaMap, _ := getMap(object["metadata"])
 
@@ -152,27 +178,220 @@ func Decrypt(data RawJson5) (*CryptoData, error) {
 	return result, nil
 }
 
-func fetchTokenApi(tokenReference string) error {
-	url := fmt.Sprintf("%s/api/m3u8/%s/", "", tokenReference)
-	return nil
+func fetchTokenApi(tokenReference, defaultDomain string, client *http.Client) (TokenApiResponse, error) {
+	url := fmt.Sprintf("%sapi/m3u8/%s/", defaultDomain, tokenReference)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return TokenApiResponse{}, err
+	}
+	fmt.Println(url)
+	resp, err := client.Do(req)
+	if err != nil {
+		return TokenApiResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	var tokenResp TokenApiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return TokenApiResponse{}, err
+	}
+
+	return tokenResp, nil
 }
 
-func sha256Hex(input string) string {
-	hash := sha256.Sum256([]byte(input))
-	return hex.EncodeToString(hash[:])
+func ResolveZerocloudz(rawUrl string) (core.StreamData, error) {
+	parsedUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+	defaultDomain := fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host)
+	client, err := NewSession(defaultDomain)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	rawHtml, err := fetchRawHtml(rawUrl, client)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	extracted, err := ExtractPayload(rawHtml)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+	json5Data, err := ParseToJson5(extracted)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	cryptoData, err := buildCryptoData(json5Data)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	tokenApiResp, err := fetchTokenApi(cryptoData.Token, defaultDomain, client)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	encryptedKeyBytes, err := cleanBase64(cryptoData.Key)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	secondaryKeyBytes, err := cleanBase64(cryptoData.Extra)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	dynamicKeyBytes, err := cleanBase64(tokenApiResp.KeyFrag)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	ivBytes, err := cleanBase64(cryptoData.IV)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+	ciphertextBytes, err := cleanBase64(tokenApiResp.VideoB64)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	videoUrl, err := PerformDecryption(json5Data.Data.ObfuscationSeed, encryptedKeyBytes, secondaryKeyBytes, dynamicKeyBytes, ivBytes, ciphertextBytes)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	return core.StreamData{
+		Url: videoUrl,
+	}, nil
 }
 
-func getMap(v interface{}) (map[string]interface{}, bool) {
-	m, ok := v.(map[string]interface{})
-	return m, ok
+func fetchRawHtml(inputUrl string, client *http.Client) (string, error) {
+	req, err := http.NewRequest("GET", inputUrl, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	htmlRaw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(htmlRaw), nil
 }
 
-func getSlice(v interface{}) ([]interface{}, bool) {
-	s, ok := v.([]interface{})
-	return s, ok
+// GenerateSBox creates a simple substitution box (S-box) for key derivation
+func GenerateSBox(seed int) []byte {
+	sbox := make([]byte, 256)
+
+	for i := 0; i < 256; i++ {
+		sbox[i] = byte((i*37 + seed) & 0xFF)
+	}
+
+	return sbox
 }
 
-func getString(v interface{}) (string, bool) {
-	s, ok := v.(string)
-	return s, ok
+func DeriveAESKey(keyFragment, secondaryKey, dynamicKey, sbox []byte) ([]byte, error) {
+	length := len(keyFragment)
+
+	// Crash-proof safety check!
+	if len(secondaryKey) < length || len(dynamicKey) < length {
+		return nil, fmt.Errorf("secondaryKey or dynamicKey is too short")
+	}
+
+	aesKey := make([]byte, length)
+
+	for i := 0; i < length; i++ {
+		aesKey[i] = keyFragment[i] ^ secondaryKey[i] ^ dynamicKey[i] ^ sbox[i&0xFF]
+	}
+
+	return aesKey, nil
+}
+
+func PerformDecryption(
+	obfuscationSeed string,
+	encryptedKeyBytes, secondaryKeyBytes, dynamicKeyBytes, ivBytes, ciphertextBytes []byte,
+) (string, error) {
+
+	// 1. Generate S-box seed (int(obfuscation_seed[0:8], 16))
+	seedHex := obfuscationSeed[0:8]
+	sboxSeedInt64, err := strconv.ParseInt(seedHex, 16, 64)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse seed hex: %w", err)
+	}
+	sboxSeed := int(sboxSeedInt64)
+
+	// 2. Generate S-box and AES Key
+	sboxTable := GenerateSBox(sboxSeed)
+
+	aesKey, err := DeriveAESKey(encryptedKeyBytes, secondaryKeyBytes, dynamicKeyBytes, sboxTable)
+	if err != nil {
+		return "", fmt.Errorf("failed to derive AES key: %w", err)
+	}
+
+	// 3. Decrypt AES-256-CBC
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create AES cipher: %w", err)
+	}
+
+	if len(ciphertextBytes)%aes.BlockSize != 0 {
+		return "", fmt.Errorf("ciphertext is not a multiple of the block size")
+	}
+
+	// Create decrypter and decrypt into a new byte slice
+	mode := cipher.NewCBCDecrypter(block, ivBytes)
+	plaintextBytes := make([]byte, len(ciphertextBytes))
+	mode.CryptBlocks(plaintextBytes, ciphertextBytes)
+
+	// 4. Unpad (equivalent to unpad(plaintext_bytes, AES.block_size))
+	unpaddedBytes, err := unpadPKCS7(plaintextBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to unpad decrypted data: %w", err)
+	}
+
+	// .decode() -> In Go, converting []byte to string handles UTF-8 automatically
+	return string(unpaddedBytes), nil
+}
+
+// unpadPKCS7 removes standard AES padding
+func unpadPKCS7(data []byte) ([]byte, error) {
+	length := len(data)
+	if length == 0 {
+		return nil, fmt.Errorf("empty data")
+	}
+
+	// In PKCS7, the last byte tells us how many bytes of padding were added
+	paddingLen := int(data[length-1])
+
+	// Sanity check to ensure padding length is valid
+	if paddingLen > length || paddingLen == 0 {
+		return nil, fmt.Errorf("invalid padding")
+	}
+
+	// Slice off the padding
+	return data[:length-paddingLen], nil
+}
+
+func cleanBase64(input string) ([]byte, error) {
+	// 1. Remove hidden newlines, spaces, and carriage returns
+	clean := strings.TrimSpace(input)
+
+	// 2. Remove accidental leftover JSON quotes just in case
+	clean = strings.Trim(clean, `"`)
+
+	// 3. Decode
+	bytes, err := base64.StdEncoding.DecodeString(clean)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode clean b64 '%s': %w", clean, err)
+	}
+
+	return bytes, nil
 }
