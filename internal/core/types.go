@@ -20,18 +20,17 @@ type StreamData struct {
 type Timestamp struct {
 	Start int
 	End   int
+	Name  string
 }
 
 // Subtitles or thumbnails
 type Track struct {
-	// Url of the track
-	File string
+	Url  string
+	Name string
+	Type string
 
-	// Name of the track
-	Label string
-
-	// Type track
-	Kind string
+	// Optional
+	Language string
 }
 
 // Individual episode struct for list of series

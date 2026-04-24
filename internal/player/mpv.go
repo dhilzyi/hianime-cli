@@ -25,7 +25,7 @@ import (
 var trackScript string
 var ScriptName string = "track.lua"
 
-func BuildDesktopCommands(
+func BuildMpvCommands(
 	cfg config.Settings,
 	metaData core.SeriesData,
 	episodeData core.Episode,
@@ -38,16 +38,14 @@ func BuildDesktopCommands(
 	// Building title display for mpv
 	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, episodeData.Titles.EnglishTitle, serverData.Name)
 
-	// Making headers
+	// Building headers if provided by providers
 	headerFields := []string{}
-
 	for k, v := range streamingData.Headers {
 		headerFields = append(headerFields, fmt.Sprintf("%s: %s", k, v))
 	}
-
 	fullHeaders := strings.Join(headerFields, ",")
 
-	// Main commands
+	// Building basic arguments
 	args := []string{
 		streamingData.Url,
 		"--ytdl-format=bestvideo+bestaudio/best",
@@ -56,7 +54,7 @@ func BuildDesktopCommands(
 		"--script-opts-append=osc-title=${title}",
 	}
 
-	// last position if exist in history
+	// Use last position from history if exist
 	episodeProgress, exist := historyData.Episode[episodeData.Number]
 	if exist {
 		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position))
@@ -73,7 +71,7 @@ func BuildDesktopCommands(
 	// 	fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
 	// }
 
-	// Jimaku subtitle command
+	// Building jimaku subtitles
 	if cfg.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(&metaData, episodeData.Number)
 		if err != nil {
@@ -90,16 +88,16 @@ func BuildDesktopCommands(
 		fmt.Printf("--> Skipping Jimaku\n")
 	}
 
-	// Subs from hianime
+	// Building subs from providers
 	for _, track := range streamingData.Tracks {
-		if track.Kind == "thumbnails" {
+		if track.Type == "thumbnails" {
 			continue
 		}
-		if cfg.EnglishOnly && track.Label != "English" {
+		if cfg.EnglishOnly && track.Name != "English" {
 			continue
 		}
 
-		args = append(args, fmt.Sprintf("--sub-file=%s", track.File))
+		args = append(args, fmt.Sprintf("--sub-file=%s", track.Url))
 	}
 
 	// Sub delay history command

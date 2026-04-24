@@ -17,7 +17,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
 	"github.com/dhilzyi/hianime-cli/internal/version"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 type InputType int
@@ -81,59 +80,8 @@ seriesLoop:
 		seriesInput := scanner.Text()
 		if seriesInput == "q" {
 			break seriesLoop
-		} else if seriesInput == "s" {
-			var searchData []hianime.SearchElements
-			var err error
-
-		searchLoop:
-			for {
-				for {
-					fmt.Printf("\nEnter anime name to search (or 'q' to go back):")
-					scanner.Scan()
-					searchInput := scanner.Text()
-					if searchInput == "q" {
-						break searchLoop
-					}
-					searchData, err = hianime.Search(searchInput)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-
-					if len(searchData) != 0 {
-						ui.PrintSeries(searchData, configSes.SortType)
-						break
-					} else {
-						fmt.Println("--! No anime result found")
-						continue
-					}
-				}
-
-				for {
-					fmt.Printf("\nEnter number anime to play (or 'q' to go back): ")
-					scanner.Scan()
-
-					usrInput := scanner.Text()
-					if usrInput == "q" {
-						break
-					}
-
-					usrInputInt, err := strconv.Atoi(strings.TrimSpace(usrInput))
-					if err != nil {
-						fmt.Println("Failed to convert to integer. Input number.")
-						continue
-					} else if usrInputInt > len(searchData) || usrInputInt <= 0 {
-						fmt.Println("Input is out of range.")
-						continue
-					}
-
-					seriesInput = searchData[usrInputInt-1].Url
-					break searchLoop
-				}
-			}
-
 		}
-
+		var err error
 		var url string
 		var selectedHistory *state.History
 
@@ -311,7 +259,7 @@ seriesLoop:
 
 				// get mpv path automatically according user platforms.
 				binName := player.GetMpvBinary(configSes.MpvPath)
-				desktopCommands := player.BuildDesktopCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
+				desktopCommands := player.BuildMpvCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
 
 				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands, flags.MpvVerbose)
 
