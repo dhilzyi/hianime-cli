@@ -52,6 +52,7 @@ func (k *Kuudere) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 		}
 		k.anilistID = seriesdata.AnilistID
 	}
+	seriesdata.AnilistID = k.anilistID
 
 	episodes, err := getEpisodes(k.anilistID)
 	if err != nil {
@@ -129,6 +130,7 @@ func getEpisodes(anilistID int) ([]core.Episode, error) {
 
 	query := req.URL.Query()
 	query.Add("anilist_id", fmt.Sprintf("%d", anilistID))
+	query.Add("a", fmt.Sprintf("%d", 0))
 	req.URL.RawQuery = query.Encode()
 
 	client := &http.Client{}

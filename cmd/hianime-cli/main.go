@@ -25,6 +25,7 @@ const (
 	InputURL InputType = iota
 	InputHistoryIndex
 	InputCommand
+	InputAnilistID
 )
 
 //go:embed version.txt
@@ -83,26 +84,30 @@ seriesLoop:
 		}
 		var err error
 		var url string
+		var anilistID int
 		var selectedHistory *state.History
 
-		inputType, index := classifyInput(seriesInput)
+		inputType, value := classifyInput(seriesInput)
 		switch inputType {
 		case InputURL:
 			url = seriesInput
 
 		case InputHistoryIndex:
-			selectedHistory, err = getHistoryByIndex(history, index)
+			selectedHistory, err = getHistoryByIndex(history, value)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				continue
 			}
 			url = selectedHistory.Url
+			anilistID = selectedHistory.AnilistID
 
+		case InputAnilistID:
+			anilistID = value
 		case InputCommand:
 			continue
 		}
 
-		result, err := ResolveInput(ResolveParams{URL: url}, &cache)
+		result, err := ResolveInput(resolveParams{URL: url, AnilistID: anilistID}, &cache)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -112,8 +117,12 @@ seriesLoop:
 		seriesMetadata := result.SeriesData
 
 		if selectedHistory == nil {
-			selectedHistory, err = findOrCreateHistory(history, seriesMetadata)
+			selectedHistory, err = findOrCreateHistory(history, seriesMetadata, provider.Name())
 			if err != nil {
+				log.Println(err)
+			}
+		} else {
+			if err := fillUpSeriesDataWithHistory(&seriesMetadata, *selectedHistory); err != nil {
 				log.Println(err)
 			}
 		}
@@ -207,6 +216,7 @@ seriesLoop:
 							break
 						} else {
 							log.Println(err)
+							break
 						}
 					}
 
