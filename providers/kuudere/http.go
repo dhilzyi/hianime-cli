@@ -1,8 +1,12 @@
 package kuudere
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"time"
 )
 
@@ -47,4 +51,52 @@ func NewSession(defaultDomain string) (*http.Client, error) {
 		Transport: transport,
 		Timeout:   15 * time.Second,
 	}, nil
+}
+
+func fetchTokenApi(tokenReference, defaultDomain string, client *http.Client) (tokenApiResponse, error) {
+	url := fmt.Sprintf("%sapi/m3u8/%s/", defaultDomain, tokenReference)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return tokenApiResponse{}, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return tokenApiResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	var tokenResp tokenApiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return tokenApiResponse{}, err
+	}
+
+	return tokenResp, nil
+}
+
+func fetchRawHtml(inputUrl string, client *http.Client) (string, error) {
+	req, err := http.NewRequest("GET", inputUrl, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	htmlRaw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(htmlRaw), nil
+}
+
+func extractSeriesUrl(rawUrl, seriesUrl string) (string, error) {
+	parsedUrl, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%s://%s%s", parsedUrl.Scheme, parsedUrl.Host, seriesUrl), nil
 }
