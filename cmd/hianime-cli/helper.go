@@ -77,7 +77,7 @@ func fromCache(entry *CacheEntry, p resolveParams) *FetchResult {
 
 func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 	if p.AnilistID != 0 {
-		if entry, ok := cache.byID[p.AnilistID]; ok {
+		if entry, ok := cache.byAnilistID[p.AnilistID]; ok {
 			fmt.Println("Info: cache hit by anilistId")
 			return fromCache(entry, p), nil
 		}
@@ -88,14 +88,24 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 		return nil, fmt.Errorf("provider is not found")
 	}
 
-	var slug string
+	var providerID string
 	var err error
 	if providerType == AnimeNoSub && p.URL != "" {
-		slug, err = normalizeAnimeNoSubURL(p.URL)
+		providerID, err = extractAnimeNoSubID(p.URL)
 		if err != nil {
 			return nil, err
 		}
-		if entry, ok := cache.bySlug[slug]; ok {
+		if entry, ok := cache.byProviderID[providerID]; ok {
+			fmt.Println("Info: cache hit by unique URL path")
+
+			return fromCache(entry, p), nil
+		}
+	} else if providerType == Kuudere && p.URL != "" {
+		providerID, err = extractKuudereID(p.URL)
+		if err != nil {
+			return nil, err
+		}
+		if entry, ok := cache.byProviderID[providerID]; ok {
 			fmt.Println("Info: cache hit by unique URL path")
 
 			return fromCache(entry, p), nil
@@ -112,13 +122,13 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 		Episodes:   episodes,
 	}
 
-	if slug != "" {
-		cache.bySlug[slug] = entry
+	if providerID != "" {
+		cache.byProviderID[providerID] = entry
 	}
 	if series.AnilistID != 0 {
-		cache.byID[series.AnilistID] = entry
+		cache.byAnilistID[series.AnilistID] = entry
 	} else if p.AnilistID != 0 {
-		cache.byID[p.AnilistID] = entry
+		cache.byAnilistID[p.AnilistID] = entry
 	}
 
 	return &FetchResult{
@@ -138,6 +148,10 @@ func getHistoryByIndex(history []state.History, index int) (*state.History, erro
 func findOrCreateHistory(histories []state.History, seriesdata core.SeriesData, providerName string) (*state.History, error) {
 	for i := range histories {
 		hist := &histories[i]
+
+		if hist.Provider != providerName {
+			continue // Skip this one, it belongs to a different website
+		}
 
 		if seriesdata.AnilistID != 0 && hist.AnilistID == seriesdata.AnilistID {
 			fmt.Println("Info: history hit by anilistID")

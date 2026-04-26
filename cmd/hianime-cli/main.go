@@ -64,8 +64,8 @@ func main() {
 	// Using anilistID as a key for the cache
 	// and using unique clean path from url itself
 	cache := Cache{
-		bySlug: make(map[string]*CacheEntry),
-		byID:   make(map[int]*CacheEntry),
+		byProviderID: make(map[string]*CacheEntry),
+		byAnilistID:  make(map[int]*CacheEntry),
 	}
 
 seriesLoop:
@@ -212,11 +212,11 @@ seriesLoop:
 						attempt, err := provider.GetStreamData(selectedServer.Name)
 						if err == nil {
 							streamData = attempt
-							testedServer = i + 1
 							break
 						} else {
-							log.Println(err)
-							break
+							log.Println("Server failed:", err)
+							testedServer = i + 1
+							continue
 						}
 					}
 
@@ -264,7 +264,7 @@ seriesLoop:
 
 				if streamData.Url == "" {
 					fmt.Println("Error: Couldn't find streamdata url!")
-					continue
+					break
 				}
 
 				// get mpv path automatically according user platforms.

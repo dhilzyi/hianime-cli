@@ -147,7 +147,7 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 
 	scanner := bufio.NewScanner(stdout)
 	done := make(chan struct{})
-	timer := time.AfterFunc(20*time.Second, func() {
+	timer := time.AfterFunc(60*time.Second, func() {
 		fmt.Println("\n--> MPV is timeout. Killing process...")
 		if cmd.Process != nil {
 			streamStarted = false
