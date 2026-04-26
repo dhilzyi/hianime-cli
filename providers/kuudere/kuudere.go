@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -100,25 +101,34 @@ func getSeriesData(rawUrl string) (core.SeriesData, error) {
 	}
 	defer resp.Body.Close()
 
-	var kuudereResp seriesDataResponse
-	if err := json.NewDecoder(resp.Body).Decode(&kuudereResp); err != nil {
-		return core.SeriesData{}, err
+	var seriesdata core.SeriesData
+	urlType := getUrlType(rawUrl)
+	switch urlType {
+	case AnimeType:
+		var animeData animeDataResponse
+		if err := json.NewDecoder(resp.Body).Decode(&animeData); err != nil {
+			return core.SeriesData{}, err
+		}
+		if err := fillUpSeriesData(&seriesdata, animeData, rawUrl); err != nil {
+			return core.SeriesData{}, err
+		}
+	case WatchType:
+		var watchData watchDataResponse
+		if err := json.NewDecoder(resp.Body).Decode(&watchData); err != nil {
+			return core.SeriesData{}, err
+		}
+		seriesurl, err := extractSeriesUrl(rawUrl, watchData.AnimeMetadata.URL)
+		if err != nil {
+			fmt.Println("Warning: cannot be able to extract series url")
+		}
+
+		if err := fillUpSeriesData(&seriesdata, watchData, seriesurl); err != nil {
+			return core.SeriesData{}, err
+		}
+
 	}
 
-	seriesurl, err := extractSeriesUrl(rawUrl, kuudereResp.AnimeInfo.URL)
-	if err != nil {
-		return core.SeriesData{}, err
-	}
-
-	return core.SeriesData{
-		AnilistID: kuudereResp.AnimeInfo.Anilist,
-		SeriesUrl: seriesurl,
-		Titles: core.Title{
-			EnglishTitle: kuudereResp.AnimeInfo.English,
-			RomajiTitle:  kuudereResp.AnimeInfo.Romaji,
-			KanjiTitle:   kuudereResp.AnimeInfo.Native,
-		},
-	}, nil
+	return seriesdata, nil
 }
 
 func getEpisodes(anilistID int) ([]core.Episode, error) {
@@ -164,4 +174,37 @@ func getEpisodes(anilistID int) ([]core.Episode, error) {
 	slices.Reverse(episodes)
 
 	return episodes, nil
+}
+
+func getUrlType(rawUrl string) UrlType {
+	if strings.Contains(rawUrl, "anime") {
+		return AnimeType
+	} else if strings.Contains(rawUrl, "watch") {
+		return WatchType
+	}
+
+	return InvalidUrlType
+}
+
+func fillUpSeriesData(s *core.SeriesData, rawResponse any, sUrl string) error {
+	s.SeriesUrl = sUrl
+
+	switch data := rawResponse.(type) {
+	case animeDataResponse:
+		s.AnilistID = data.AnimeMetadata.AnilistID
+		s.Titles.EnglishTitle = data.AnimeMetadata.English
+		s.Titles.RomajiTitle = data.AnimeMetadata.Romaji
+		s.Titles.KanjiTitle = data.AnimeMetadata.Native
+
+	case watchDataResponse:
+		s.AnilistID = data.AnimeMetadata.AnilistID
+		s.Titles.EnglishTitle = data.AnimeMetadata.English
+		s.Titles.RomajiTitle = data.AnimeMetadata.Romaji
+		s.Titles.KanjiTitle = data.AnimeMetadata.Native
+
+	default:
+		return fmt.Errorf("fillUpSeriesData: unsupported response struct type")
+	}
+
+	return nil
 }
