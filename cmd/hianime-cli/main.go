@@ -75,7 +75,7 @@ seriesLoop:
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}
-		fmt.Print("\nEnter number or paste hianime url to play (or 's' to call api search): ")
+		fmt.Print("\nEnter number or paste supported url to play (or 's' to call api search): ")
 		scanner.Scan()
 
 		seriesInput := scanner.Text()
@@ -196,42 +196,34 @@ seriesLoop:
 				var selectedServer core.Server
 				var streamData core.StreamData
 
+				fmt.Printf("\n--> Episode '%d' selected\n", selectedEpisode.Number)
 				if configSes.AutoSelectServer {
 					if testedServer >= len(servers) {
 						fmt.Println("\nNo available servers found for following episode.")
 						break
 					}
 
-					fmt.Println("\n--> Auto-select server enabled.")
+					fmt.Println("--> Auto-select server enabled.")
 
 					for i := testedServer; i < len(servers); i++ {
 						selectedServer = servers[i]
 
-						fmt.Printf("--> Selecting '%s'....\n", selectedServer.Name)
+						fmt.Printf("--> Attempt: %d...\nSelecting '%s'....\n", i+1, selectedServer.Name)
 
 						attempt, err := provider.GetStreamData(selectedServer.Name)
 						if err == nil {
 							streamData = attempt
 							break
 						} else {
-							log.Println("Server failed:", err)
+							fmt.Println("Error: server failed:", err)
 							testedServer = i + 1
 							continue
 						}
 					}
 
 				} else {
-					fmt.Print("\n--- Available Servers ---\n")
+					ui.PrintServers(servers)
 
-					for i := range len(servers) {
-						serverIns := servers[i]
-
-						if serverIns.Type == "dub" {
-							fmt.Printf(" [%d] %s (Dub)\n", i+1, serverIns.Name)
-						} else {
-							fmt.Printf(" [%d] %s\n", i+1, serverIns.Name)
-						}
-					}
 					fmt.Print("\nEnter server number (or 'q' to go back): ")
 					scanner.Scan()
 
@@ -257,13 +249,13 @@ seriesLoop:
 							log.Println(err)
 						}
 					} else {
-						fmt.Println("Error: Number is invalid.")
+						fmt.Println("Error: number is invalid.")
 						continue
 					}
 				}
 
 				if streamData.Url == "" {
-					fmt.Println("Error: Couldn't find streamdata url!")
+					fmt.Println("Error: could not find streamdata url")
 					break
 				}
 
