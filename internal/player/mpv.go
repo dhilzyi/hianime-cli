@@ -61,22 +61,17 @@ func BuildMpvCommands(
 	}
 
 	// Chapter command
-	// if streamingData.Chapters.End > 0 || streamingData.Outro.Start > 0 {
-	// 	chapterPathFile := CreateChapters(streamingData, historyData, episodeData, flags.Debug)
-	// 	if chapterPathFile != "" {
-	// 		fmt.Println("--> Adding chapters to mpv.")
-	// 		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
-	// 	}
-	// } else {
-	// 	fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
-	// }
+	if len(streamingData.Chapters) > 0 {
+		chapterFile := createChapters(streamingData.Chapters, episodeData)
+		fmt.Println("--> Info: Adding episode chapters to mpv.")
+		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterFile))
+	}
 
 	// Building jimaku subtitles
 	if cfg.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(&metaData, episodeData.Number)
 		if err != nil {
-			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-			fmt.Printf("--> Skipping Jimaku\n")
+			fmt.Printf("Error: Failed to get subs from jimaku: '%v'\n", err)
 		} else {
 			if len(jimakuList) > 0 {
 				for i := range jimakuList {
@@ -85,7 +80,7 @@ func BuildMpvCommands(
 			}
 		}
 	} else {
-		fmt.Printf("--> Skipping Jimaku\n")
+		fmt.Printf("--> Warning: skipping jimaku\n")
 	}
 
 	// Building subs from providers
@@ -93,16 +88,17 @@ func BuildMpvCommands(
 		if track.Type == "thumbnails" {
 			continue
 		}
-		if cfg.EnglishOnly && track.Name != "English" {
+		if cfg.EnglishOnly && strings.Contains(strings.ToLower(track.Name), "english") {
 			continue
 		}
 
+		fmt.Printf("--> Info: Adding subtitle '%s' from site to mpv.\n", track.Url)
 		args = append(args, fmt.Sprintf("--sub-file=%s", track.Url))
 	}
 
 	// Sub delay history command
 	if historyData.SubDelay != 0 {
-		fmt.Println("--> Adding sub-delay from history...")
+		fmt.Println("--> Info: Adding sub-delay from history...")
 		args = append(args, fmt.Sprintf("--sub-delay=%.1f", historyData.SubDelay))
 	}
 
@@ -111,7 +107,7 @@ func BuildMpvCommands(
 	if err == nil {
 		args = append(args, "--scripts-append="+scriptLua)
 	} else {
-		log.Println(err)
+		fmt.Println("Warning: failed to include lua script")
 	}
 
 	if flags.MpvVerbose {

@@ -11,22 +11,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
-func prettyDuration(seconds float64) string {
-	m := int(seconds) / 60
-	s := int(seconds) % 60
-	return fmt.Sprintf("%02d:%02d", m, s)
-}
-
-func typeOrder(t string, listType []string) int {
-	for i, typ := range listType {
-		if typ == t {
-			return i
-		}
-	}
-
-	return len(listType)
-}
-
 func PrintEpisodes(episodes []core.Episode, history state.History) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "\tNO.\tEPS_NAME\tDURATION")
@@ -101,11 +85,20 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 }
 
 func PrintServers(servers []core.Server) {
+	fmt.Println("\n--- Available Servers ---\n")
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NO.\tNAME\tTYPE")
+
 	for i := range servers {
 		inst := servers[i]
 
-		fmt.Printf("%d. %s: %s\n", i+1, inst.Name, inst.Type)
+		fmt.Fprintf(w, "[%d]\t%s\t%s\n",
+			i+1, inst.Name, inst.Type,
+		)
 	}
+
+	w.Flush()
 }
 
 func PrintRecentHistory(history []state.History) {
