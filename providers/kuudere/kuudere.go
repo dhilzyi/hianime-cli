@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"slices"
+	"sort"
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/core"
@@ -37,7 +37,7 @@ func New(rawUrl string, inputAnilistID int) *Kuudere {
 // }
 
 func (k *Kuudere) Name() string {
-	return "kuudere"
+	return "Kuudere"
 }
 
 func (k *Kuudere) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
@@ -171,7 +171,9 @@ func getEpisodes(anilistID int) ([]core.Episode, error) {
 		})
 	}
 
-	slices.Reverse(episodes)
+	sort.Slice(episodes, func(i, j int) bool {
+		return episodes[i].Number < episodes[j].Number
+	})
 
 	return episodes, nil
 }

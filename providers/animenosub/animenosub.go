@@ -3,7 +3,7 @@ package animenosub
 import (
 	"fmt"
 	"net/http"
-	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -162,7 +162,9 @@ func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, *core.Serie
 		SeriesUrl: seriesPageUrl,
 		Titles:    core.Title{EnglishTitle: titleSeries.Text()},
 	}
-	slices.Reverse(seriesEpisode)
+	sort.Slice(seriesEpisode, func(i, j int) bool {
+		return seriesEpisode[i].Number < seriesEpisode[j].Number
+	})
 
 	return seriesEpisode, seriesData, nil
 }
