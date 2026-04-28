@@ -8,7 +8,6 @@ import (
 
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 func PrintEpisodes(episodes []core.Episode, history state.History) {
@@ -48,12 +47,12 @@ func DebugPrint(format string, contents ...any) {
 	fmt.Println(prefix, contents)
 }
 
-func PrintSeries(searchData []hianime.SearchElements, order []string) {
+func PrintSearchResults(searchData []core.SearchResult, order []string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
 	typeOrders := order
 
-	slices.SortFunc(searchData, func(a, b hianime.SearchElements) int {
+	slices.SortFunc(searchData, func(a, b core.SearchResult) int {
 		orderA := typeOrder(a.Type, typeOrders)
 		orderB := typeOrder(b.Type, typeOrders)
 
@@ -72,13 +71,14 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 			ins.NumberEpisodes = 1
 		}
 
-		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\t%d\n",
+		fmt.Fprintf(w, "[%d]\t%s\t%s\t%dm\t%d\n",
 			i+1,
-			ins.JapaneseName,
+			ins.Titles.RomajiTitle,
 			ins.Type,
 			ins.Duration,
 			ins.NumberEpisodes,
 		)
+		fmt.Println(ins.Url)
 	}
 
 	w.Flush()
