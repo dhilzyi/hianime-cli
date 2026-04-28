@@ -53,3 +53,11 @@ type Server struct {
 	Name string
 	Type string
 }
+
+type SearchResult struct {
+	Titles         Title
+	Type           string
+	NumberEpisodes int
+	Duration       int
+	Url            string
+}
