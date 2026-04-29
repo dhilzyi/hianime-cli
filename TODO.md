@@ -12,4 +12,6 @@ Some notes list what i want to do.
 
 ### Provider site
 - [ ] Add animekai provider support
-
+- [ ] anime.nexus
+- [ ] animeonsen.xyz
+- [ ] animenex.one

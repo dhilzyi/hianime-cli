@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/cli"
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
@@ -75,7 +76,7 @@ seriesLoop:
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}
-		fmt.Print("\nEnter number or paste supported url to play (or 's' to call api search): ")
+		fmt.Print("\nEnter number or paste supported url to play: ")
 		scanner.Scan()
 
 		seriesInput := scanner.Text()
@@ -134,7 +135,7 @@ seriesLoop:
 
 	episodeLoop:
 		for {
-			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.Titles.EnglishTitle)
+			fmt.Printf("\n--- Series: %s ---\n\n", common.GetPreferredTitle(seriesMetadata.Titles))
 			if len(episodes) < 1 {
 				fmt.Println("Error: No episodes data is found")
 				break

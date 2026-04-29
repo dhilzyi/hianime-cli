@@ -6,8 +6,10 @@ import (
 	"slices"
 	"text/tabwriter"
 
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/olekukonko/tablewriter"
 )
 
 func PrintEpisodes(episodes []core.Episode, history state.History) {
@@ -27,16 +29,7 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 			timeInfo = fmt.Sprintf("%s/%s", curr, total)
 		}
 
-		var title string
-		if eps.Titles.EnglishTitle != "" {
-			title = eps.Titles.EnglishTitle
-		} else if eps.Titles.RomajiTitle != "" {
-			title = eps.Titles.RomajiTitle
-		} else if eps.Titles.KanjiTitle != "" {
-			title = eps.Titles.KanjiTitle
-		}
-
-		fmt.Fprintf(w, "%s\t[%02d]\t%s\t%s\n", prefix, eps.Number, title, timeInfo)
+		fmt.Fprintf(w, "%s\t[%02d]\t%s\t%s\n", prefix, eps.Number, common.GetPreferredTitle(eps.Titles), timeInfo)
 	}
 	w.Flush()
 
@@ -73,19 +66,18 @@ func PrintSearchResults(searchData []core.SearchResult, order []string) {
 
 		fmt.Fprintf(w, "[%d]\t%s\t%s\t%dm\t%d\n",
 			i+1,
-			ins.Titles.RomajiTitle,
+			common.GetPreferredTitle(ins.Titles),
 			ins.Type,
 			ins.Duration,
 			ins.NumberEpisodes,
 		)
-		fmt.Println(ins.Url)
 	}
 
 	w.Flush()
 }
 
 func PrintServers(servers []core.Server) {
-	fmt.Println("\n--- Available Servers ---\n")
+	fmt.Printf("\n--- Available Servers ---\n\n")
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NO.\tNAME\tTYPE")
@@ -103,12 +95,11 @@ func PrintServers(servers []core.Server) {
 
 func PrintRecentHistory(history []state.History) {
 	fmt.Printf("\n--- Recent History ---\n\n")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header([]string{"NO.", "NAME", "TYPE", "PROVIDER"})
 
 	var title string
 	var provider string
-	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tPROVIDER")
-
 	for i := range history {
 		inst := history[i]
 		if inst.EnglishName != "" {
@@ -123,13 +114,12 @@ func PrintRecentHistory(history []state.History) {
 			provider = "N/A"
 		}
 
-		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\n",
-			i+1,
+		table.Append([]string{
+			fmt.Sprintf("[%d]", i+1),
 			title,
 			"N/A",
 			provider,
-		)
-
+		})
 	}
-	w.Flush()
+	table.Render()
 }

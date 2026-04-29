@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
 func StringToQueryFormat(rawInput string) string {
@@ -22,4 +24,20 @@ func GetBaseURL(rawUrl string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host), nil
+}
+
+func GetPreferredTitle(titles core.Title) string {
+	var finalTitle string
+	if titles.EnglishTitle != "" {
+		finalTitle = titles.EnglishTitle
+	} else if titles.RomajiTitle != "" {
+		finalTitle = titles.RomajiTitle
+	} else if titles.KanjiTitle != "" {
+		finalTitle = titles.KanjiTitle
+
+	} else {
+		finalTitle = "UNKNOWN"
+	}
+
+	return finalTitle
 }
