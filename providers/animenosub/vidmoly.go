@@ -20,7 +20,6 @@ func getStreamLink(vidmolyUrl string) (core.StreamData, error) {
 	if err != nil {
 		return core.StreamData{}, err
 	}
-	fmt.Println(string(body))
 
 	re := regexp.MustCompile(`file:\s*\'(.*?)\'`)
 	result := re.FindStringSubmatch(string(body))

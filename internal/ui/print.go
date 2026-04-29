@@ -4,32 +4,48 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"text/tabwriter"
 
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
-func prettyDuration(seconds float64) string {
-	m := int(seconds) / 60
-	s := int(seconds) % 60
-	return fmt.Sprintf("%02d:%02d", m, s)
-}
-
-func typeOrder(t string, listType []string) int {
-	for i, typ := range listType {
-		if typ == t {
-			return i
-		}
-	}
-
-	return len(listType)
-}
-
 func PrintEpisodes(episodes []core.Episode, history state.History) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "\tNO.\tEPS_NAME\tDURATION")
+	symbols := tw.NewSymbolCustom("MyGrid").
+		WithRow("─").
+		WithColumn("│").
+		WithCenter("┼")
+
+	table := tablewriter.NewTable(os.Stdout,
+
+		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{
+			Borders: tw.BorderNone, // This completely removes the outer box!
+			Symbols: symbols,
+			Settings: tw.Settings{
+				Separators: tw.Separators{
+					BetweenColumns: tw.On, // Turns on vertical lines
+				},
+				Lines: tw.Lines{
+					ShowTop: tw.On, // Keeps the dividing line under the header
+				},
+			},
+		})),
+
+		// Configure the Alignment
+		tablewriter.WithConfig(tablewriter.Config{
+			Header: tw.CellConfig{
+				Alignment: tw.CellAlignment{Global: tw.AlignLeft},
+			},
+			Row: tw.CellConfig{
+				Alignment: tw.CellAlignment{Global: tw.AlignLeft},
+			},
+		}),
+	)
+	table.Header([]string{"LAST", "NO", "EPS NAME", "DURATION"})
 
 	for _, eps := range episodes {
 		prefix := "  "
@@ -43,20 +59,14 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 			total := prettyDuration(prog.Duration)
 			timeInfo = fmt.Sprintf("%s/%s", curr, total)
 		}
-
-		var title string
-		if eps.Titles.EnglishTitle != "" {
-			title = eps.Titles.EnglishTitle
-		} else if eps.Titles.RomajiTitle != "" {
-			title = eps.Titles.RomajiTitle
-		} else if eps.Titles.KanjiTitle != "" {
-			title = eps.Titles.KanjiTitle
-		}
-
-		fmt.Fprintf(w, "%s\t[%02d]\t%s\t%s\n", prefix, eps.Number, title, timeInfo)
+		table.Append([]string{
+			prefix,
+			fmt.Sprintf("%d", eps.Number),
+			common.GetPreferredTitle(eps.Titles),
+			timeInfo,
+		})
 	}
-	w.Flush()
-
+	table.Render()
 }
 
 func DebugPrint(format string, contents ...any) {
@@ -64,12 +74,13 @@ func DebugPrint(format string, contents ...any) {
 	fmt.Println(prefix, contents)
 }
 
-func PrintSeries(searchData []hianime.SearchElements, order []string) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+func PrintSearchResults(searchData []core.SearchResult, order []string) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header([]string{"NO", "NAME", "TYPE", "DURATION", "NUMBER EPS"})
 
 	typeOrders := order
 
-	slices.SortFunc(searchData, func(a, b hianime.SearchElements) int {
+	slices.SortFunc(searchData, func(a, b core.SearchResult) int {
 		orderA := typeOrder(a.Type, typeOrders)
 		orderB := typeOrder(b.Type, typeOrders)
 
@@ -81,48 +92,56 @@ func PrintSeries(searchData []hianime.SearchElements, order []string) {
 		return 1
 	})
 
-	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tDURATION\tNUMBER EPS")
 	for i := range searchData {
 		ins := searchData[i]
 		if ins.NumberEpisodes == 0 {
 			ins.NumberEpisodes = 1
 		}
 
-		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\t%d\n",
-			i+1,
-			ins.JapaneseName,
+		table.Append([]string{
+			fmt.Sprintf("[%d]", i+1),
 			ins.Type,
-			ins.Duration,
-			ins.NumberEpisodes,
-		)
+			fmt.Sprintf("%dm", ins.Duration),
+			fmt.Sprintf("%d", ins.NumberEpisodes),
+		})
 	}
 
-	w.Flush()
+	table.Render()
 }
 
 func PrintServers(servers []core.Server) {
+	fmt.Printf("\n--- Available Servers ---\n\n")
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header([]string{"NO", "NAME", "TYPE"})
+
 	for i := range servers {
 		inst := servers[i]
 
-		fmt.Printf("%d. %s: %s\n", i+1, inst.Name, inst.Type)
+		table.Append([]string{
+			fmt.Sprintf("[%d]", i+1),
+			inst.Name,
+			inst.Type,
+		})
 	}
+
+	table.Render()
 }
 
 func PrintRecentHistory(history []state.History) {
 	fmt.Printf("\n--- Recent History ---\n\n")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	table := tablewriter.NewWriter(os.Stdout)
+	table.Header([]string{"NO", "NAME", "TYPE", "PROVIDER"})
 
 	var title string
 	var provider string
-	fmt.Fprintln(w, "NO.\tNAME\tTYPE\tPROVIDER")
-
 	for i := range history {
 		inst := history[i]
-		if inst.EnglishName != "" {
-			title = inst.EnglishName
-		}
 		if inst.JapaneseName != "" {
 			title = inst.JapaneseName
+		}
+		if inst.EnglishName != "" {
+			title = inst.EnglishName
 		}
 		if inst.Provider != "" {
 			provider = inst.Provider
@@ -130,13 +149,13 @@ func PrintRecentHistory(history []state.History) {
 			provider = "N/A"
 		}
 
-		fmt.Fprintf(w, "[%d]\t%s\t%s\t%s\n",
-			i+1,
+		table.Append([]string{
+			fmt.Sprintf("[%d]", i+1),
 			title,
 			"N/A",
 			provider,
-		)
-
+		})
 	}
-	w.Flush()
+
+	table.Render()
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/dhilzyi/hianime-cli/cli"
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/jimaku"
@@ -25,7 +26,7 @@ import (
 var trackScript string
 var ScriptName string = "track.lua"
 
-func BuildDesktopCommands(
+func BuildMpvCommands(
 	cfg config.Settings,
 	metaData core.SeriesData,
 	episodeData core.Episode,
@@ -36,18 +37,16 @@ func BuildDesktopCommands(
 	flags cli.FlagsStruct,
 ) []string {
 	// Building title display for mpv
-	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, episodeData.Titles.EnglishTitle, serverData.Name)
+	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, common.GetPreferredTitle(episodeData.Titles), serverData.Name)
 
-	// Making headers
+	// Building headers if provided by providers
 	headerFields := []string{}
-
 	for k, v := range streamingData.Headers {
 		headerFields = append(headerFields, fmt.Sprintf("%s: %s", k, v))
 	}
-
 	fullHeaders := strings.Join(headerFields, ",")
 
-	// Main commands
+	// Building basic arguments
 	args := []string{
 		streamingData.Url,
 		"--ytdl-format=bestvideo+bestaudio/best",
@@ -56,29 +55,24 @@ func BuildDesktopCommands(
 		"--script-opts-append=osc-title=${title}",
 	}
 
-	// last position if exist in history
+	// Use last position from history if exist
 	episodeProgress, exist := historyData.Episode[episodeData.Number]
 	if exist {
 		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position))
 	}
 
 	// Chapter command
-	// if streamingData.Chapters.End > 0 || streamingData.Outro.Start > 0 {
-	// 	chapterPathFile := CreateChapters(streamingData, historyData, episodeData, flags.Debug)
-	// 	if chapterPathFile != "" {
-	// 		fmt.Println("--> Adding chapters to mpv.")
-	// 		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterPathFile))
-	// 	}
-	// } else {
-	// 	fmt.Println("--> Intro & Outro doesn't found. Skip creating chapters.")
-	// }
+	if len(streamingData.Chapters) > 0 {
+		chapterFile := createChapters(streamingData.Chapters, episodeData)
+		fmt.Println("--> Info: Adding episode chapters to mpv.")
+		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterFile))
+	}
 
-	// Jimaku subtitle command
+	// Building jimaku subtitles
 	if cfg.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(&metaData, episodeData.Number)
 		if err != nil {
-			fmt.Printf("Failed to get subs from jimaku: '%s'\n", err)
-			fmt.Printf("--> Skipping Jimaku\n")
+			fmt.Printf("Error: Failed to get subs from jimaku: '%v'\n", err)
 		} else {
 			if len(jimakuList) > 0 {
 				for i := range jimakuList {
@@ -87,24 +81,25 @@ func BuildDesktopCommands(
 			}
 		}
 	} else {
-		fmt.Printf("--> Skipping Jimaku\n")
+		fmt.Printf("--> Warning: skipping jimaku\n")
 	}
 
-	// Subs from hianime
+	// Building subs from providers
 	for _, track := range streamingData.Tracks {
-		if track.Kind == "thumbnails" {
+		if track.Type == "thumbnails" {
 			continue
 		}
-		if cfg.EnglishOnly && track.Label != "English" {
+		if cfg.EnglishOnly && strings.Contains(strings.ToLower(track.Name), "english") {
 			continue
 		}
 
-		args = append(args, fmt.Sprintf("--sub-file=%s", track.File))
+		fmt.Printf("--> Info: Adding subtitle '%s' from site to mpv.\n", track.Url)
+		args = append(args, fmt.Sprintf("--sub-file=%s", track.Url))
 	}
 
 	// Sub delay history command
 	if historyData.SubDelay != 0 {
-		fmt.Println("--> Adding sub-delay from history...")
+		fmt.Println("--> Info: Adding sub-delay from history...")
 		args = append(args, fmt.Sprintf("--sub-delay=%.1f", historyData.SubDelay))
 	}
 
@@ -113,7 +108,7 @@ func BuildDesktopCommands(
 	if err == nil {
 		args = append(args, "--scripts-append="+scriptLua)
 	} else {
-		log.Println(err)
+		fmt.Println("Warning: failed to include lua script")
 	}
 
 	if flags.MpvVerbose {
@@ -149,7 +144,7 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 
 	scanner := bufio.NewScanner(stdout)
 	done := make(chan struct{})
-	timer := time.AfterFunc(20*time.Second, func() {
+	timer := time.AfterFunc(60*time.Second, func() {
 		fmt.Println("\n--> MPV is timeout. Killing process...")
 		if cmd.Process != nil {
 			streamStarted = false

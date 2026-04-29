@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/cli"
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
@@ -17,7 +18,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
 	"github.com/dhilzyi/hianime-cli/internal/version"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
 )
 
 type InputType int
@@ -26,6 +26,7 @@ const (
 	InputURL InputType = iota
 	InputHistoryIndex
 	InputCommand
+	InputAnilistID
 )
 
 //go:embed version.txt
@@ -64,8 +65,8 @@ func main() {
 	// Using anilistID as a key for the cache
 	// and using unique clean path from url itself
 	cache := Cache{
-		bySlug: make(map[string]*CacheEntry),
-		byID:   make(map[int]*CacheEntry),
+		byProviderID: make(map[string]*CacheEntry),
+		byAnilistID:  make(map[int]*CacheEntry),
 	}
 
 seriesLoop:
@@ -75,86 +76,39 @@ seriesLoop:
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}
-		fmt.Print("\nEnter number or paste hianime url to play (or 's' to call api search): ")
+		fmt.Print("\nEnter number or paste supported url to play: ")
 		scanner.Scan()
 
 		seriesInput := scanner.Text()
 		if seriesInput == "q" {
 			break seriesLoop
-		} else if seriesInput == "s" {
-			var searchData []hianime.SearchElements
-			var err error
-
-		searchLoop:
-			for {
-				for {
-					fmt.Printf("\nEnter anime name to search (or 'q' to go back):")
-					scanner.Scan()
-					searchInput := scanner.Text()
-					if searchInput == "q" {
-						break searchLoop
-					}
-					searchData, err = hianime.Search(searchInput)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-
-					if len(searchData) != 0 {
-						ui.PrintSeries(searchData, configSes.SortType)
-						break
-					} else {
-						fmt.Println("--! No anime result found")
-						continue
-					}
-				}
-
-				for {
-					fmt.Printf("\nEnter number anime to play (or 'q' to go back): ")
-					scanner.Scan()
-
-					usrInput := scanner.Text()
-					if usrInput == "q" {
-						break
-					}
-
-					usrInputInt, err := strconv.Atoi(strings.TrimSpace(usrInput))
-					if err != nil {
-						fmt.Println("Failed to convert to integer. Input number.")
-						continue
-					} else if usrInputInt > len(searchData) || usrInputInt <= 0 {
-						fmt.Println("Input is out of range.")
-						continue
-					}
-
-					seriesInput = searchData[usrInputInt-1].Url
-					break searchLoop
-				}
-			}
-
 		}
-
+		var err error
 		var url string
+		var anilistID int
 		var selectedHistory *state.History
 
-		inputType, index := classifyInput(seriesInput)
+		inputType, value := classifyInput(seriesInput)
 		switch inputType {
 		case InputURL:
 			url = seriesInput
 
 		case InputHistoryIndex:
-			selectedHistory, err = getHistoryByIndex(history, index)
+			selectedHistory, err = getHistoryByIndex(history, value)
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				continue
 			}
 			url = selectedHistory.Url
+			anilistID = selectedHistory.AnilistID
 
+		case InputAnilistID:
+			anilistID = value
 		case InputCommand:
 			continue
 		}
 
-		result, err := ResolveInput(ResolveParams{URL: url}, &cache)
+		result, err := ResolveInput(resolveParams{URL: url, AnilistID: anilistID}, &cache)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -164,8 +118,12 @@ seriesLoop:
 		seriesMetadata := result.SeriesData
 
 		if selectedHistory == nil {
-			selectedHistory, err = findOrCreateHistory(history, seriesMetadata)
+			selectedHistory, err = findOrCreateHistory(history, seriesMetadata, provider.Name())
 			if err != nil {
+				log.Println(err)
+			}
+		} else {
+			if err := fillUpSeriesDataWithHistory(&seriesMetadata, *selectedHistory); err != nil {
 				log.Println(err)
 			}
 		}
@@ -177,7 +135,7 @@ seriesLoop:
 
 	episodeLoop:
 		for {
-			fmt.Printf("\n--- Series: %s ---\n\n", seriesMetadata.Titles.EnglishTitle)
+			fmt.Printf("\n--- Series: %s ---\n\n", common.GetPreferredTitle(seriesMetadata.Titles))
 			if len(episodes) < 1 {
 				fmt.Println("Error: No episodes data is found")
 				break
@@ -239,41 +197,34 @@ seriesLoop:
 				var selectedServer core.Server
 				var streamData core.StreamData
 
+				fmt.Printf("\n--> Episode '%d' selected\n", selectedEpisode.Number)
 				if configSes.AutoSelectServer {
 					if testedServer >= len(servers) {
 						fmt.Println("\nNo available servers found for following episode.")
 						break
 					}
 
-					fmt.Println("\n--> Auto-select server enabled.")
+					fmt.Println("--> Auto-select server enabled.")
 
 					for i := testedServer; i < len(servers); i++ {
 						selectedServer = servers[i]
 
-						fmt.Printf("--> Selecting '%s'....\n", selectedServer.Name)
+						fmt.Printf("--> Attempt: %d...\nSelecting '%s'....\n", i+1, selectedServer.Name)
 
 						attempt, err := provider.GetStreamData(selectedServer.Name)
 						if err == nil {
 							streamData = attempt
-							testedServer = i + 1
 							break
 						} else {
-							log.Println(err)
+							fmt.Println("Error: server failed:", err)
+							testedServer = i + 1
+							continue
 						}
 					}
 
 				} else {
-					fmt.Print("\n--- Available Servers ---\n")
+					ui.PrintServers(servers)
 
-					for i := range len(servers) {
-						serverIns := servers[i]
-
-						if serverIns.Type == "dub" {
-							fmt.Printf(" [%d] %s (Dub)\n", i+1, serverIns.Name)
-						} else {
-							fmt.Printf(" [%d] %s\n", i+1, serverIns.Name)
-						}
-					}
 					fmt.Print("\nEnter server number (or 'q' to go back): ")
 					scanner.Scan()
 
@@ -299,19 +250,19 @@ seriesLoop:
 							log.Println(err)
 						}
 					} else {
-						fmt.Println("Error: Number is invalid.")
+						fmt.Println("Error: number is invalid.")
 						continue
 					}
 				}
 
 				if streamData.Url == "" {
-					fmt.Println("Error: Couldn't find streamdata url!")
-					continue
+					fmt.Println("Error: could not find streamdata url")
+					break
 				}
 
 				// get mpv path automatically according user platforms.
 				binName := player.GetMpvBinary(configSes.MpvPath)
-				desktopCommands := player.BuildDesktopCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
+				desktopCommands := player.BuildMpvCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
 
 				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands, flags.MpvVerbose)
 

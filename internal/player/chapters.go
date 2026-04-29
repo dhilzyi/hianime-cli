@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/internal/ui"
-	"github.com/dhilzyi/hianime-cli/providers/hianime"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
-// NOTE: For intro and outro in mpv so user can know the timestamps and skip easily.
-func CreateChapters(data hianime.StreamData, historyData state.History, episodeData hianime.Episodes, debug bool) string {
-
+// NOTE: For building temp file write intro and outro in mpv so user can know the timestamps and skip easily.
+func createChapters(data []core.Timestamp, episodeData core.Episode) string {
 	f, err := os.CreateTemp("", "hianime_chapters_*.txt")
 	if err != nil {
 		fmt.Println("Error while creating temporary file: " + err.Error())
@@ -28,31 +25,9 @@ func CreateChapters(data hianime.StreamData, historyData state.History, episodeD
 		contents += fmt.Sprintf("title=%s\n\n", title)
 	}
 
-	if data.Intro.Start > 0 || data.Intro.End > 0 {
-		if data.Intro.Start == 0 {
-			writePart(data.Intro.Start, data.Intro.End, "Intro")
-		} else {
-			writePart(0, data.Intro.Start, "Part A")
-			writePart(data.Intro.Start, data.Intro.End, "Intro")
-		}
-	}
-
-	if data.Outro.Start > 0 && data.Outro.End > 0 {
-		writePart(data.Intro.End, data.Outro.Start, "Part B")
-		writePart(data.Outro.Start, data.Outro.End, "Outro")
-
-		// Using exact duration from history if exist
-		episodeProgress, exist := historyData.Episode[episodeData.Number]
-		if exist {
-			if debug {
-				ui.DebugPrint("[CHAPTER]", "History duration exist", debug)
-			}
-			writePart(data.Outro.End, int(episodeProgress.Duration), "Part C")
-		} else {
-			if debug {
-				ui.DebugPrint("[CHAPTER]", "History duration not exist")
-			}
-			writePart(data.Outro.End, 9999999, "Part C")
+	for _, timestamp := range data {
+		if timestamp.Start >= 0 && timestamp.End > timestamp.Start {
+			writePart(timestamp.Start, timestamp.End, timestamp.Name)
 		}
 	}
 

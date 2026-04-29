@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -149,9 +148,9 @@ func getIdJimaku(anilistID int) (Search, error) {
 
 func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error) {
 	if jimakuApi == "" {
-		return []string{}, fmt.Errorf("no Jimaku API found in the enviroment variable")
+		return nil, fmt.Errorf("no Jimaku API found in the environment variable")
 	}
-	fmt.Println("\n--> jimakuApiKey found. Querying into the Jimaku api....")
+	fmt.Println("\n--> Jimaku api key found. Querying into the Jimaku api....")
 
 	if seriesData.AnilistID == 0 {
 		if err := anilist.FillSeriesData(seriesData); err != nil {
@@ -161,17 +160,17 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 
 	data, err := getIdJimaku(seriesData.AnilistID)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	filesList, err := getFiles(int(data[0].ID), episodeNum)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf("Failed to get home directory: %v", err)
+		return nil, err
 	}
 
 	defaultPath := filepath.Join(homeDir, "subtitle")
@@ -181,7 +180,7 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 	seriesDir := filepath.Join(defaultPath, cleanName)
 
 	if err := os.MkdirAll(seriesDir, 0755); err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	var nameLists []string
@@ -214,7 +213,7 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 		} else if os.IsNotExist(err) {
 			fmt.Printf("	Downloading: %s\n", filename)
 		} else {
-			fmt.Printf("Error: accessing path %s: %v\n", fullPath, err)
+			fmt.Printf("Error: accessing path '%s': %v\n", fullPath, err)
 			continue
 		}
 
@@ -228,7 +227,7 @@ func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error
 	}
 
 	if len(nameLists) == 0 {
-		return nameLists, fmt.Errorf("--! Failed to retrieve anything")
+		return nil, fmt.Errorf("failed to retrieve subtitles")
 	}
 
 	return nameLists, nil

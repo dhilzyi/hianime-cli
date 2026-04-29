@@ -1,5 +1,5 @@
 ## Description
-A simple CLI tool to stream anime from supported providers. It's also integrated from website [Jimaku](https://github.com/Rapptz/jimaku).
+A simple CLI tool to stream anime from supported providers to your local MPV.
 
 ## Disclaimer
 This project was built for educational purposes to practice web scraping and Go. I do not host any content, nor am I affiliated with the services being scraped. This tool simply accesses publicly available data. Please use it responsibly and support the original creators.
