@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
+	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
 
 // original site: 'animenosub.to'
@@ -17,6 +19,7 @@ type AnimeNoSub struct {
 	serverData  map[string]string
 	episodeData map[string]core.Episode
 	inputUrl    string
+	baseUrl     string
 }
 
 type serverData struct {
@@ -41,6 +44,29 @@ func (a *AnimeNoSub) GetSeriesData() (core.SeriesData, error) {
 	var seriesData core.SeriesData
 	return seriesData, nil
 }
+
+func (a *AnimeNoSub) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
+	keywordVal := common.StringToQueryFormat(rawInput)
+
+	url := "https://animenosub.to"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	query := req.URL.Query()
+	query.Add("s", keywordVal)
+	req.URL.RawQuery = query.Encode()
+
+	searchresults, err := fetchSearchResult(req)
+	if err != nil {
+		return nil, err
+	}
+
+	ui.PrintSearchResults(searchresults, nil)
+
+	return searchresults, nil
+}
+
 func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	pageType := getPageType(a.inputUrl)
 
@@ -62,7 +88,7 @@ func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 
 	for i := range epsList {
 		inst := epsList[i]
-		a.episodeData[inst.Titles.RomajiTitle] = inst
+		a.episodeData[common.GetPreferredTitle(inst.Titles)] = inst
 	}
 
 	return epsList, seriesData, nil
@@ -295,4 +321,47 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	}
 
 	return streamdata, nil
+}
+
+func fetchSearchResult(req *http.Request) ([]core.SearchResult, error) {
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	results, err := getResults(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func getResults(resp *http.Response) ([]core.SearchResult, error) {
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	listUpdEle := doc.Find("div.listupd")
+
+	var data []core.SearchResult
+	listUpdEle.Find("a").Each(func(i int, s *goquery.Selection) {
+		urlSeries, exists := s.Attr("href")
+		if !exists {
+			return
+		}
+		title := strings.TrimSpace(s.Find("div.tt h2").Text())
+		typeAnime := s.Find(".typez").Text()
+
+		ins := core.SearchResult{
+			Titles: core.Title{EnglishTitle: title},
+			Url:    urlSeries,
+			Type:   typeAnime,
+		}
+		data = append(data, ins)
+	})
+
+	return data, nil
 }

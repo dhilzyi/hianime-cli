@@ -6,8 +6,11 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
+	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
 
 // original site: 'https://kuudere.ru/'
@@ -17,6 +20,7 @@ type Kuudere struct {
 	inputUrl   string
 	anilistID  int
 	serverData map[string]string
+	domains    []string
 }
 
 func New(rawUrl string, inputAnilistID int) *Kuudere {
@@ -24,6 +28,7 @@ func New(rawUrl string, inputAnilistID int) *Kuudere {
 		inputUrl:   rawUrl,
 		serverData: make(map[string]string),
 		anilistID:  inputAnilistID,
+		domains:    []string{"to", "ru", "lol"},
 	}
 }
 
@@ -40,6 +45,40 @@ func (k *Kuudere) Name() string {
 	return "Kuudere"
 }
 
+func (k *Kuudere) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
+	keywordVal := common.StringToQueryFormat(rawInput)
+	var searchResult []core.SearchResult
+	for _, domain := range k.domains {
+		url := fmt.Sprintf("https://kuudere.%s/search", domain)
+
+		baseUrl, err := common.GetBaseURL(url)
+		if err != nil {
+			fmt.Printf("Error: failed to get base url: %s\n", url)
+			continue
+		}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Printf("Error: failed to create new request for: %s\n", url)
+			continue
+		}
+		query := req.URL.Query()
+		query.Add("keyword", keywordVal)
+
+		req.URL.RawQuery = query.Encode()
+
+		searchResult, err = fetchQuerySearch(req, baseUrl)
+		if err != nil {
+			fmt.Printf("Error: failed to fetch search result: %s", url)
+		} else {
+			break
+		}
+	}
+
+	ui.PrintSearchResults(searchResult, nil)
+
+	return nil, nil
+}
+
 func (k *Kuudere) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	var seriesdata core.SeriesData
 	var err error
@@ -49,7 +88,7 @@ func (k *Kuudere) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 			return nil, nil, err
 		}
 		if seriesdata.AnilistID == 0 {
-			return nil, nil, fmt.Errorf("anilistid is 0 value and cant not retrieve episodes data")
+			return nil, nil, fmt.Errorf("anilistid value is 0 and cannot retrieve episodes data")
 		}
 		k.anilistID = seriesdata.AnilistID
 	}
@@ -132,7 +171,7 @@ func getSeriesData(rawUrl string) (core.SeriesData, error) {
 }
 
 func getEpisodes(anilistID int) ([]core.Episode, error) {
-	episodesEndpoint := "https://zencloud.cc/videos/raw"
+	episodesEndpoint := "https://zencloudz.cc/videos/raw"
 	req, err := http.NewRequest("GET", episodesEndpoint, nil)
 	if err != nil {
 		return nil, err
@@ -143,7 +182,10 @@ func getEpisodes(anilistID int) ([]core.Episode, error) {
 	query.Add("a", fmt.Sprintf("%d", 0))
 	req.URL.RawQuery = query.Encode()
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -209,4 +251,39 @@ func fillUpSeriesData(s *core.SeriesData, rawResponse any, sUrl string) error {
 	}
 
 	return nil
+}
+
+func fetchQuerySearch(req *http.Request, baseUrl string) ([]core.SearchResult, error) {
+	client := *&http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var searchData searchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searchData); err != nil {
+		return nil, err
+	}
+	if !searchData.Success {
+		return nil, fmt.Errorf("failed to fecth")
+	}
+	var realdata []core.SearchResult
+	for _, data := range searchData.Documents {
+		inst := core.SearchResult{
+			Titles: core.Title{
+				EnglishTitle: data.English,
+				RomajiTitle:  data.Romaji,
+				KanjiTitle:   data.Native,
+			},
+			Type:           data.Type,
+			Duration:       data.Duration,
+			NumberEpisodes: data.EpCount,
+			Url:            fmt.Sprintf("%s/anime/%s", baseUrl, data.ID),
+		}
+		realdata = append(realdata, inst)
+
+	}
+
+	return realdata, nil
 }

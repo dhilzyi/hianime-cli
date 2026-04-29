@@ -110,3 +110,31 @@ type episodesResponse struct {
 		PrevPage    interface{} `json:"prev_page"`
 	} `json:"pagination"`
 }
+
+type searchResponse struct {
+	Success   bool `json:"success"`
+	Total     int  `json:"total"`
+	Documents []struct {
+		ID           string   `json:"id"`
+		English      string   `json:"english"`
+		Romaji       string   `json:"romaji"`
+		Native       string   `json:"native"`
+		AgeRating    string   `json:"ageRating"`
+		MalScore     float64  `json:"malScore"`
+		AverageScore int      `json:"averageScore"`
+		Duration     int      `json:"duration"`
+		Genres       []string `json:"genres"`
+		Cover        string   `json:"cover"`
+		Season       string   `json:"season"`
+		StartDate    string   `json:"startDate"`
+		Status       string   `json:"status"`
+		Synonyms     []string `json:"synonyms"`
+		Type         string   `json:"type"`
+		Year         int      `json:"year"`
+		EpCount      int      `json:"epCount"`
+		SubbedCount  int      `json:"subbedCount"`
+		DubbedCount  int      `json:"dubbedCount"`
+		Description  string   `json:"description"`
+	} `json:"documents"`
+	TotalPages int `json:"totalPages"`
+}
