@@ -15,7 +15,7 @@ func ensureTrackScript(dataDir string) (string, error) {
 
 	scriptPath := filepath.Join(scriptDir, ScriptName)
 	if _, err := os.Stat(scriptPath); err == nil {
-		fmt.Println("--> Lua script exist")
+		fmt.Println("--> Info: Lua script exist")
 	} else if os.IsNotExist(err) {
 		if err := WriteLuaScript(scriptPath); err != nil {
 			return "", err
