@@ -5,7 +5,6 @@ import (
 	"os"
 	"slices"
 
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 
@@ -62,7 +61,7 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 		table.Append([]string{
 			prefix,
 			fmt.Sprintf("%d", eps.Number),
-			common.GetPreferredTitle(eps.Titles),
+			eps.Titles.GetPreferredTitle(),
 			timeInfo,
 		})
 	}
@@ -136,7 +135,7 @@ func PrintRecentHistory(history []state.History) {
 	var provider string
 	for i := range history {
 		inst := history[i]
-		title := common.GetPreferredTitle(inst.Metadata.Titles)
+		title := inst.Metadata.Titles.GetPreferredTitle()
 		if inst.Provider != "" {
 			provider = inst.Provider
 		} else {

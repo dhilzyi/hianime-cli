@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/jimaku"
@@ -36,7 +35,7 @@ func BuildMpvCommands(
 	verbose bool,
 ) []string {
 	// Building title display for mpv
-	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, common.GetPreferredTitle(episodeData.Titles), serverData.Name)
+	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, episodeData.Titles.GetPreferredTitle(), serverData.Name)
 
 	// Building headers if provided by providers
 	headerFields := []string{}

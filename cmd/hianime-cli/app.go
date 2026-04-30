@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/player"
@@ -107,7 +106,7 @@ func (a *App) handleEpisodeView(
 	var selectedEpisode core.Episode
 
 	for {
-		fmt.Printf("\n--- Series: %s ---\n\n", common.GetPreferredTitle(series.Titles))
+		fmt.Printf("\n--- Series: %s ---\n\n", series.Titles.GetPreferredTitle())
 		if len(episodes) < 1 {
 			fmt.Println("Error: No episodes data is found")
 			break

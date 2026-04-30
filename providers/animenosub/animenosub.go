@@ -88,7 +88,7 @@ func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 
 	for i := range epsList {
 		inst := epsList[i]
-		a.episodeData[common.GetPreferredTitle(inst.Titles)] = inst
+		a.episodeData[inst.Titles.GetPreferredTitle()] = inst
 	}
 
 	return epsList, seriesData, nil
