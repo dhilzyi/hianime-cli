@@ -10,7 +10,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
-	"github.com/dhilzyi/hianime-cli/internal/path"
 	"github.com/dhilzyi/hianime-cli/internal/player"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
@@ -20,7 +19,7 @@ type App struct {
 	Config  *config.Config
 	History []state.History
 	Cache   *Cache
-	AppDir  *path.AppPaths
+	AppDir  *config.AppPaths
 	Flags   *FlagsStruct
 	Scanner *bufio.Scanner
 }
@@ -40,7 +39,7 @@ func (a *App) handleMenu(
 	var fetchResult *FetchResult
 	for {
 		if len(history) > 0 {
-			ui.PrintRecentHistory(history)
+			ui.PrintRecentHistory(a.History)
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}

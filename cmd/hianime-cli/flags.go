@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dhilzyi/hianime-cli/internal/upgrade"
+	"github.com/dhilzyi/hianime-cli/internal/release"
 )
 
 type FlagsStruct struct {
@@ -34,7 +34,7 @@ func HandleFlags(flags FlagsStruct, version string) {
 		os.Exit(0)
 	}
 	if flags.Update {
-		if err := upgrade.UpdateCLI(); err != nil {
+		if err := release.UpdateCLI(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {

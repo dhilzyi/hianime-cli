@@ -8,9 +8,8 @@ import (
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/config"
-	"github.com/dhilzyi/hianime-cli/internal/path"
+	"github.com/dhilzyi/hianime-cli/internal/release"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/internal/version"
 )
 
 type InputType int
@@ -32,7 +31,7 @@ func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 
-	appDir, err := path.InitPath()
+	appDir, err := config.InitPath()
 	if err != nil {
 		fmt.Println("Fail to initialize path: " + err.Error())
 	}
@@ -41,7 +40,7 @@ func main() {
 		fmt.Println("Fail to load config file: " + err.Error())
 	}
 
-	if newCfg, updated, err := version.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
+	if newCfg, updated, err := release.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
 		fmt.Println("Fail to run version module:", err)
 	} else {
 		if updated {
