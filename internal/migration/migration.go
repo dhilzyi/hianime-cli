@@ -9,7 +9,7 @@ import (
 )
 
 func Run(dataDir, embedVer string, oldCfg config.Settings) (config.Settings, error) {
-	fmt.Println("Update and migration started...")
+	fmt.Println("\nUpdate and migration started...")
 	scriptPath := player.TrackScriptPath(dataDir, player.ScriptName)
 	if err := player.WriteLuaScript(scriptPath); err != nil {
 		log.Println(err)

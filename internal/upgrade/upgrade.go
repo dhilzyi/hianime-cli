@@ -7,17 +7,22 @@ import (
 )
 
 func UpdateCLI() error {
-	fmt.Println("Upgrading hianime-cli...")
+	_, err := exec.LookPath("go")
+	if err != nil {
+		return fmt.Errorf("self-update failed: 'go' is not installed or not in your system PATH. Please download the latest release manually from GitHub")
+	}
 
-	cmd := exec.Command("go", "install", "github.com/dhilzyi/hianime-cli@latest")
+	fmt.Println("Updating hianime-cli...")
+
+	cmd := exec.Command("go", "install", "github.com/dhilzyi/hianime-cli/cmd/hianime-cli@latest")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to update: %w", err)
+		return fmt.Errorf("self-update failed: %w", err)
 	}
 
-	fmt.Println("Update complete. Please restart the application.")
+	fmt.Println("Update complete.")
 
 	return nil
 }
