@@ -4,19 +4,12 @@ import (
 	"bufio"
 	_ "embed"
 	"fmt"
-	"log"
 	"os"
-	"strconv"
 	"strings"
 
-	"github.com/dhilzyi/hianime-cli/cli"
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
-	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/path"
-	"github.com/dhilzyi/hianime-cli/internal/player"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/internal/ui"
 	"github.com/dhilzyi/hianime-cli/internal/version"
 )
 
@@ -34,8 +27,8 @@ var embedVersion string
 
 func main() {
 	cleanEmbedVersion := strings.TrimSpace(embedVersion)
-	flags := cli.ParseFlags()
-	cli.HandleFlags(flags, cleanEmbedVersion)
+	flags := ParseFlags()
+	HandleFlags(flags, cleanEmbedVersion)
 
 	scanner := bufio.NewScanner(os.Stdin)
 
@@ -49,7 +42,7 @@ func main() {
 	}
 
 	if newCfg, updated, err := version.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
-		log.Println(err)
+		fmt.Println("Fail to run version module:", err)
 	} else {
 		if updated {
 			configSes = newCfg
@@ -69,222 +62,14 @@ func main() {
 		byAnilistID:  make(map[int]*CacheEntry),
 	}
 
-seriesLoop:
-	for {
-		if len(history) > 0 {
-			ui.PrintRecentHistory(history)
-		} else {
-			fmt.Printf("\n--- No recent history found ---\n\n")
-		}
-		fmt.Print("\nEnter number or paste supported url to play: ")
-		scanner.Scan()
-
-		seriesInput := scanner.Text()
-		if seriesInput == "q" {
-			break seriesLoop
-		}
-		var err error
-		var url string
-		var anilistID int
-		var selectedHistory *state.History
-
-		inputType, value := classifyInput(seriesInput)
-		switch inputType {
-		case InputURL:
-			url = seriesInput
-
-		case InputHistoryIndex:
-			selectedHistory, err = getHistoryByIndex(history, value)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			url = selectedHistory.Metadata.SeriesUrl
-			anilistID = selectedHistory.Metadata.AnilistID
-
-		case InputAnilistID:
-			anilistID = value
-		case InputCommand:
-			continue
-		}
-
-		result, err := ResolveInput(resolveParams{URL: url, AnilistID: anilistID}, &cache)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		provider := result.Provider
-		episodes := result.Episodes
-		seriesMetadata := result.SeriesData
-
-		if selectedHistory == nil {
-			selectedHistory, err = findOrCreateHistory(history, seriesMetadata, provider.Name())
-			if err != nil {
-				log.Println(err)
-			}
-		} else {
-			seriesMetadata = selectedHistory.Metadata
-		}
-
-		history = state.UpdateHistory(history, *selectedHistory)
-		if err := state.SaveHistory(history, appDir.DataDir); err != nil {
-			log.Println(err)
-		}
-
-	episodeLoop:
-		for {
-			fmt.Printf("\n--- Series: %s ---\n\n", common.GetPreferredTitle(seriesMetadata.Titles))
-			if len(episodes) < 1 {
-				fmt.Println("Error: No episodes data is found")
-				break
-			}
-			ui.PrintEpisodes(episodes, *selectedHistory)
-
-			fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")
-			scanner.Scan()
-
-			episodeInput := scanner.Text()
-			episodeInput = strings.TrimSpace(episodeInput)
-
-			if episodeInput == "q" {
-				break episodeLoop
-			}
-
-			var selectedNum int
-			if episodeInput == "" {
-				selectedNum = selectedHistory.LastEpisode
-
-			} else {
-				selectedNum, err = strconv.Atoi(episodeInput)
-				if err != nil {
-					fmt.Printf("Invaild number: %s", err.Error())
-					continue
-				}
-			}
-
-			var servers []core.Server
-			var selectedEpisode core.Episode
-
-			if selectedNum > 0 && selectedNum <= len(episodes) {
-				selectedEpisode = episodes[selectedNum-1]
-				servers, err = provider.GetServers(selectedEpisode)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-
-				selectedHistory.LastEpisode = selectedNum
-
-				history = state.UpdateHistory(history, *selectedHistory)
-				if err := state.SaveHistory(history, appDir.DataDir); err != nil {
-					log.Println(err)
-				}
-			} else {
-				fmt.Println("Error: Number is invalid.")
-				continue
-			}
-
-			var testedServer int
-		serverLoop:
-			for {
-				if len(servers) == 0 {
-					fmt.Println("\nNo available servers found.")
-					break
-				}
-
-				var selectedServer core.Server
-				var streamData core.StreamData
-
-				fmt.Printf("\n--> Episode '%d' selected\n", selectedEpisode.Number)
-				if configSes.AutoSelectServer {
-					if testedServer >= len(servers) {
-						fmt.Println("\nNo available servers found for following episode.")
-						break
-					}
-
-					fmt.Println("--> Auto-select server enabled.")
-
-					for i := testedServer; i < len(servers); i++ {
-						selectedServer = servers[i]
-
-						fmt.Printf("--> Attempt: %d...\nSelecting '%s'....\n", i+1, selectedServer.Name)
-
-						attempt, err := provider.GetStreamData(selectedServer.Name)
-						if err == nil {
-							streamData = attempt
-							break
-						} else {
-							fmt.Println("Error:", err)
-							testedServer = i + 1
-							continue
-						}
-					}
-
-				} else {
-					ui.PrintServers(servers)
-
-					fmt.Print("\nEnter server number (or 'q' to go back): ")
-					scanner.Scan()
-
-					serverInput := scanner.Text()
-					serverInput = strings.TrimSpace(serverInput)
-
-					if serverInput == "q" {
-						break serverLoop
-					}
-					serverInputInt, err := strconv.Atoi(serverInput)
-					if err != nil {
-						fmt.Printf("Error when converting to int: %s\n", err.Error())
-						continue
-					}
-
-					if serverInputInt > 0 && serverInputInt <= len(servers) {
-						selectedServer = servers[serverInputInt-1]
-
-						attempt, err := provider.GetStreamData(selectedServer.Name)
-						if err == nil {
-							streamData = attempt
-						} else {
-							log.Println(err)
-						}
-					} else {
-						fmt.Println("Error: number is invalid.")
-						continue
-					}
-				}
-
-				if streamData.Url == "" {
-					fmt.Println("Error: could not find streamdata url for this episode")
-					break
-				}
-
-				// get mpv path automatically according user platforms.
-				binName := player.GetMpvBinary(configSes.MpvPath)
-				desktopCommands := player.BuildMpvCommands(configSes, seriesMetadata, selectedEpisode, selectedServer, streamData, *selectedHistory, appDir.DataDir, flags)
-
-				success, subDelay, lastPos, totalDur := player.PlayMpv(binName, desktopCommands, flags.MpvVerbose)
-
-				if success {
-					selectedHistory.SubDelay = subDelay
-					if selectedHistory.Episodes == nil {
-						selectedHistory.Episodes = make(map[int]state.EpisodeProgress)
-					}
-
-					selectedHistory.Episodes[selectedEpisode.Number] = state.EpisodeProgress{
-						Position: lastPos,
-						Duration: totalDur,
-					}
-
-					history = state.UpdateHistory(history, *selectedHistory)
-					if err := state.SaveHistory(history, appDir.DataDir); err != nil {
-						log.Println(err)
-					}
-
-					break serverLoop
-				} else {
-					continue
-				}
-			}
-		}
+	app := &App{
+		Config:  &configSes,
+		History: history,
+		Cache:   &cache,
+		AppDir:  &appDir,
+		Flags:   &flags,
+		Scanner: scanner,
 	}
+
+	app.handleMenu(history)
 }
