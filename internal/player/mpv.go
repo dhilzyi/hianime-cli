@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhilzyi/hianime-cli/cli"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
@@ -27,14 +26,14 @@ var trackScript string
 var ScriptName string = "track.lua"
 
 func BuildMpvCommands(
-	cfg config.Settings,
+	cfg config.Config,
 	metaData core.SeriesData,
 	episodeData core.Episode,
 	serverData core.Server,
 	streamingData core.StreamData,
 	historyData state.History,
 	datadir string,
-	flags cli.FlagsStruct,
+	verbose bool,
 ) []string {
 	// Building title display for mpv
 	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, common.GetPreferredTitle(episodeData.Titles), serverData.Name)
@@ -103,7 +102,7 @@ func BuildMpvCommands(
 		fmt.Println("Warning: failed to include lua script")
 	}
 
-	if flags.MpvVerbose {
+	if verbose {
 		args = append(args, "--v")
 	}
 	return args

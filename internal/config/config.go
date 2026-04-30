@@ -9,7 +9,7 @@ import (
 
 var configFilePath string
 
-type Settings struct {
+type Config struct {
 	JimakuEnable     bool     `json:"jimaku_enable"`     // for enabling jimaku
 	AutoSelectServer bool     `json:"auto_selectserver"` // whether user want use auto select server or manual input server
 	MpvPath          string   `json:"mpv_path"`          // manually set mpv path command
@@ -18,8 +18,8 @@ type Settings struct {
 	LocalVersion     string   `json:"local_version"`
 }
 
-func getDefaultConfig(ver string) Settings {
-	return Settings{
+func getDefaultConfig(ver string) Config {
+	return Config{
 		JimakuEnable:     false,
 		AutoSelectServer: true,
 		MpvPath:          "",
@@ -29,47 +29,47 @@ func getDefaultConfig(ver string) Settings {
 	}
 }
 
-func LoadConfig(configDir, ver string) (Settings, error) {
+func LoadConfig(configDir, ver string) (Config, error) {
 	defaultConfig := getDefaultConfig(ver)
 
-	var configSession Settings
+	var configSession Config
 	configFilePath = filepath.Join(configDir, "config.json")
 	oldPath := "config.json"
 
 	if configData, err := os.ReadFile(configFilePath); err == nil {
 		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Settings{}, err
+			return Config{}, err
 		}
 
 		fmt.Println("Load config success")
 		return configSession, nil
 	} else if !os.IsNotExist(err) {
-		return Settings{}, err
+		return Config{}, err
 	}
 
 	if configData, err := os.ReadFile(oldPath); err == nil {
 		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Settings{}, err
+			return Config{}, err
 		}
 
 		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return Settings{}, err
+			return Config{}, err
 		}
 		if err := saveConfig(configSession); err != nil {
-			return Settings{}, err
+			return Config{}, err
 		}
 
 		fmt.Println("Config migrated to new location from legacy location.")
 
 		return configSession, nil
 	} else if !os.IsNotExist(err) {
-		return Settings{}, err
+		return Config{}, err
 	}
 
 	configSession = defaultConfig
 
 	if err := saveConfig(configSession); err != nil {
-		return Settings{}, err
+		return Config{}, err
 	}
 
 	fmt.Println("File config load success.")
@@ -77,7 +77,7 @@ func LoadConfig(configDir, ver string) (Settings, error) {
 	return configSession, nil
 }
 
-func saveConfig(rawData Settings) error {
+func saveConfig(rawData Config) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
 		return err
@@ -91,12 +91,12 @@ func saveConfig(rawData Settings) error {
 
 }
 
-func MigrateConfig(oldCfg Settings, ver string) (Settings, error) {
+func MigrateConfig(oldCfg Config, ver string) (Config, error) {
 	defaultConfig := getDefaultConfig(ver)
 	oldCfg.LocalVersion = defaultConfig.LocalVersion
 
 	if err := saveConfig(oldCfg); err != nil {
-		return Settings{}, err
+		return Config{}, err
 	}
 
 	return oldCfg, nil

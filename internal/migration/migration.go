@@ -8,7 +8,7 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/player"
 )
 
-func Run(dataDir, embedVer string, oldCfg config.Settings) (config.Settings, error) {
+func Run(dataDir, embedVer string, oldCfg config.Config) (config.Config, error) {
 	fmt.Println("\nUpdate and migration started...")
 	scriptPath := player.TrackScriptPath(dataDir, player.ScriptName)
 	if err := player.WriteLuaScript(scriptPath); err != nil {
@@ -18,7 +18,7 @@ func Run(dataDir, embedVer string, oldCfg config.Settings) (config.Settings, err
 	}
 	newCfg, err := config.MigrateConfig(oldCfg, embedVer)
 	if err != nil {
-		return config.Settings{}, err
+		return config.Config{}, err
 	}
 	fmt.Println("	Migrate to new config completed.")
 

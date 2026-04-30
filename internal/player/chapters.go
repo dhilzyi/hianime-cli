@@ -37,7 +37,7 @@ func createChapters(data []core.Timestamp, episodeData core.Episode) string {
 	return f.Name()
 }
 
-func buildProvidedSubs(cfg config.Settings, tracks []core.Track) []string {
+func buildProvidedSubs(cfg config.Config, tracks []core.Track) []string {
 	var added []string
 	englishCandidate := []string{
 		"english",

@@ -13,17 +13,17 @@ import (
 
 const versionURL = "https://raw.githubusercontent.com/dhilzyi/hianime-cli/main/cmd/hianime-cli/version.txt"
 
-func Run(embedVer, dataDir string, cfg config.Settings) (config.Settings, bool, error) {
+func Run(embedVer, dataDir string, cfg config.Config) (config.Config, bool, error) {
 	latestVer, err := getLatestVersion()
 	if err != nil {
-		return config.Settings{}, false, err
+		return config.Config{}, false, err
 	}
 
-	var newCfg config.Settings
+	var newCfg config.Config
 	var updated bool
 
 	if !semver.IsValid(embedVer) || !semver.IsValid(latestVer) {
-		return config.Settings{}, false, fmt.Errorf("invalid semver format")
+		return config.Config{}, false, fmt.Errorf("invalid semver format")
 	}
 
 	needMigrate := !semver.IsValid(cfg.LocalVersion) ||
@@ -32,7 +32,7 @@ func Run(embedVer, dataDir string, cfg config.Settings) (config.Settings, bool, 
 	if needMigrate {
 		newCfg, err = migration.Run(dataDir, embedVer, cfg)
 		if err != nil {
-			return config.Settings{}, false, err
+			return config.Config{}, false, err
 		}
 		updated = true
 	}
