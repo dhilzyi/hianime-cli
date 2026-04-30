@@ -99,8 +99,8 @@ seriesLoop:
 				log.Println(err)
 				continue
 			}
-			url = selectedHistory.Url
-			anilistID = selectedHistory.AnilistID
+			url = selectedHistory.Metadata.SeriesUrl
+			anilistID = selectedHistory.Metadata.AnilistID
 
 		case InputAnilistID:
 			anilistID = value
@@ -123,9 +123,7 @@ seriesLoop:
 				log.Println(err)
 			}
 		} else {
-			if err := fillUpSeriesDataWithHistory(&seriesMetadata, *selectedHistory); err != nil {
-				log.Println(err)
-			}
+			seriesMetadata = selectedHistory.Metadata
 		}
 
 		history = state.UpdateHistory(history, *selectedHistory)
@@ -216,7 +214,7 @@ seriesLoop:
 							streamData = attempt
 							break
 						} else {
-							fmt.Println("Error: server failed:", err)
+							fmt.Println("Error:", err)
 							testedServer = i + 1
 							continue
 						}
@@ -256,7 +254,7 @@ seriesLoop:
 				}
 
 				if streamData.Url == "" {
-					fmt.Println("Error: could not find streamdata url")
+					fmt.Println("Error: could not find streamdata url for this episode")
 					break
 				}
 
@@ -268,12 +266,11 @@ seriesLoop:
 
 				if success {
 					selectedHistory.SubDelay = subDelay
-
-					if selectedHistory.Episode == nil {
-						selectedHistory.Episode = make(map[int]state.EpisodeProgress)
+					if selectedHistory.Episodes == nil {
+						selectedHistory.Episodes = make(map[int]state.EpisodeProgress)
 					}
 
-					selectedHistory.Episode[selectedEpisode.Number] = state.EpisodeProgress{
+					selectedHistory.Episodes[selectedEpisode.Number] = state.EpisodeProgress{
 						Position: lastPos,
 						Duration: totalDur,
 					}

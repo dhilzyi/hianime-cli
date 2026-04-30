@@ -3,7 +3,9 @@ package player
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
@@ -33,4 +35,35 @@ func createChapters(data []core.Timestamp, episodeData core.Episode) string {
 
 	f.WriteString(contents)
 	return f.Name()
+}
+
+func buildProvidedSubs(cfg config.Settings, tracks []core.Track) []string {
+	var added []string
+	englishCandidate := []string{
+		"english",
+		"eng",
+	}
+
+	for _, track := range tracks {
+		if track.Type == "thumbnails" || strings.Contains(track.Type, "thumbnail") {
+			continue
+		}
+		if cfg.EnglishOnly {
+			isEnglish := false
+			langLower := strings.ToLower(track.Language)
+
+			for _, keyword := range englishCandidate {
+				if strings.Contains(langLower, keyword) {
+					isEnglish = true
+					break
+				}
+			}
+			if !isEnglish {
+				continue
+			}
+		}
+
+		added = append(added, "--sub-file="+track.Url)
+	}
+	return added
 }

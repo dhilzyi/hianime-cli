@@ -54,7 +54,7 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 		}
 
 		timeInfo := ""
-		if prog, ok := history.Episode[eps.Number]; ok {
+		if prog, ok := history.Episodes[eps.Number]; ok {
 			curr := prettyDuration(prog.Position)
 			total := prettyDuration(prog.Duration)
 			timeInfo = fmt.Sprintf("%s/%s", curr, total)
@@ -133,16 +133,10 @@ func PrintRecentHistory(history []state.History) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.Header([]string{"NO", "NAME", "TYPE", "PROVIDER"})
 
-	var title string
 	var provider string
 	for i := range history {
 		inst := history[i]
-		if inst.JapaneseName != "" {
-			title = inst.JapaneseName
-		}
-		if inst.EnglishName != "" {
-			title = inst.EnglishName
-		}
+		title := common.GetPreferredTitle(inst.Metadata.Titles)
 		if inst.Provider != "" {
 			provider = inst.Provider
 		} else {
