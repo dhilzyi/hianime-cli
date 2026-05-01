@@ -32,6 +32,15 @@ const (
 	Kuudere
 )
 
+type InputType int
+
+const (
+	InputURL InputType = iota
+	InputHistoryIndex
+	InputCommand
+	InputAnilistID
+)
+
 func getProvider(p resolveParams) (core.Provider, ProviderType) {
 	if strings.Contains(p.URL, "animenosub") {
 		return animenosub.New(p.URL), AnimeNoSub

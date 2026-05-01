@@ -30,14 +30,11 @@ func (a *App) SaveHistory(updated *state.History) {
 	}
 }
 
-func (a *App) handleMenu(
-	history []state.History,
-) {
-
+func (a *App) handleMenu() {
 	var selectedHistory *state.History
 	var fetchResult *FetchResult
 	for {
-		if len(history) > 0 {
+		if len(a.History) > 0 {
 			ui.PrintRecentHistory(a.History)
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
@@ -59,7 +56,7 @@ func (a *App) handleMenu(
 			url = seriesInput
 
 		case InputHistoryIndex:
-			selectedHistory, err = getHistoryByIndex(history, value)
+			selectedHistory, err = getHistoryByIndex(a.History, value)
 			if err != nil {
 				log.Println(err)
 				continue
@@ -82,7 +79,7 @@ func (a *App) handleMenu(
 		series := fetchResult.SeriesData
 
 		if selectedHistory == nil {
-			selectedHistory, err = findOrCreateHistory(history, series, provider.Name())
+			selectedHistory, err = findOrCreateHistory(a.History, series, provider.Name())
 			if err != nil {
 				log.Println(err)
 				continue
@@ -180,7 +177,6 @@ func (a *App) handleServerView(
 			}
 
 			fmt.Println("--> Auto-select server enabled.")
-
 			for i := testedServer; i < len(servers); i++ {
 				selectedServer = servers[i]
 
@@ -196,7 +192,6 @@ func (a *App) handleServerView(
 					continue
 				}
 			}
-
 		} else {
 			ui.PrintServers(servers)
 
@@ -205,16 +200,15 @@ func (a *App) handleServerView(
 
 			serverInput := a.Scanner.Text()
 			serverInput = strings.TrimSpace(serverInput)
-
 			if serverInput == "q" {
 				return
 			}
+
 			serverInputInt, err := strconv.Atoi(serverInput)
 			if err != nil {
 				fmt.Printf("Error when converting to int: %s\n", err.Error())
 				continue
 			}
-
 			if serverInputInt > 0 && serverInputInt <= len(servers) {
 				selectedServer = servers[serverInputInt-1]
 

@@ -18,8 +18,8 @@ type Config struct {
 	LocalVersion     string   `json:"local_version"`
 }
 
-func getDefaultConfig(ver string) Config {
-	return Config{
+func getDefaultConfig(ver string) *Config {
+	return &Config{
 		JimakuEnable:     false,
 		AutoSelectServer: true,
 		MpvPath:          "",
@@ -29,52 +29,26 @@ func getDefaultConfig(ver string) Config {
 	}
 }
 
-func LoadConfig(configDir, ver string) (Config, error) {
-	defaultConfig := getDefaultConfig(ver)
+func LoadConfig(configDir, embedVer string) (*Config, error) {
+	cfg := getDefaultConfig(embedVer)
 
-	var configSession Config
 	configFilePath = filepath.Join(configDir, "config.json")
-	oldPath := "config.json"
-
-	if configData, err := os.ReadFile(configFilePath); err == nil {
-		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Config{}, err
+	fileData, err := os.ReadFile(configFilePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
 		}
-
-		fmt.Println("Load config success")
-		return configSession, nil
-	} else if !os.IsNotExist(err) {
-		return Config{}, err
+		if err := saveConfig(*cfg); err != nil {
+			return nil, err
+		}
+		fmt.Println("Creating new config success")
+		return cfg, nil
 	}
-
-	if configData, err := os.ReadFile(oldPath); err == nil {
-		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Config{}, err
-		}
-
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return Config{}, err
-		}
-		if err := saveConfig(configSession); err != nil {
-			return Config{}, err
-		}
-
-		fmt.Println("Config migrated to new location from legacy location.")
-
-		return configSession, nil
-	} else if !os.IsNotExist(err) {
-		return Config{}, err
+	if err := json.Unmarshal(fileData, &cfg); err != nil {
+		return nil, err
 	}
-
-	configSession = defaultConfig
-
-	if err := saveConfig(configSession); err != nil {
-		return Config{}, err
-	}
-
-	fmt.Println("File config load success.")
-
-	return configSession, nil
+	fmt.Println("Load config success")
+	return cfg, nil
 }
 
 func saveConfig(rawData Config) error {
@@ -91,13 +65,11 @@ func saveConfig(rawData Config) error {
 
 }
 
-func MigrateConfig(oldCfg Config, ver string) (Config, error) {
-	defaultConfig := getDefaultConfig(ver)
-	oldCfg.LocalVersion = defaultConfig.LocalVersion
-
-	if err := saveConfig(oldCfg); err != nil {
-		return Config{}, err
+func BumpConfig(cfg *Config, newVer string) error {
+	cfg.LocalVersion = newVer
+	if err := saveConfig(*cfg); err != nil {
+		return err
 	}
 
-	return oldCfg, nil
+	return nil
 }

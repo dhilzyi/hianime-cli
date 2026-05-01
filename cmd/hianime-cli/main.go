@@ -12,15 +12,6 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/state"
 )
 
-type InputType int
-
-const (
-	InputURL InputType = iota
-	InputHistoryIndex
-	InputCommand
-	InputAnilistID
-)
-
 //go:embed version.txt
 var embedVersion string
 
@@ -40,12 +31,11 @@ func main() {
 		fmt.Println("Fail to load config file: " + err.Error())
 	}
 
-	if newCfg, updated, err := release.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
+	if updated, err := release.Run(cleanEmbedVersion, appDir.DataDir, configSes); err != nil {
 		fmt.Println("Fail to run version module:", err)
 	} else {
 		if updated {
-			configSes = newCfg
-			fmt.Printf("Set to new config complete.\n")
+			fmt.Printf("Info: Set to new config complete.\n")
 		}
 	}
 
@@ -62,7 +52,7 @@ func main() {
 	}
 
 	app := &App{
-		Config:  &configSes,
+		Config:  configSes,
 		History: history,
 		Cache:   &cache,
 		AppDir:  &appDir,
@@ -70,5 +60,5 @@ func main() {
 		Scanner: scanner,
 	}
 
-	app.handleMenu(history)
+	app.handleMenu()
 }

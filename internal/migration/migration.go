@@ -8,19 +8,19 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/player"
 )
 
-func Run(dataDir, embedVer string, oldCfg config.Config) (config.Config, error) {
-	fmt.Println("\nUpdate and migration started...")
+func Run(dataDir, embedVer string, oldCfg *config.Config) error {
+	fmt.Println("\nUpdate started...")
 	scriptPath := player.TrackScriptPath(dataDir, player.ScriptName)
 	if err := player.WriteLuaScript(scriptPath); err != nil {
 		log.Println(err)
 	} else {
 		fmt.Println("	Update lua script completed.")
 	}
-	newCfg, err := config.MigrateConfig(oldCfg, embedVer)
+	err := config.BumpConfig(oldCfg, embedVer)
 	if err != nil {
-		return config.Config{}, err
+		return err
 	}
-	fmt.Println("	Migrate to new config completed.")
+	fmt.Println("	Update config completed.")
 
-	return newCfg, nil
+	return nil
 }

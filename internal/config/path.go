@@ -6,7 +6,9 @@ import (
 	"runtime"
 )
 
-var appName string = "hianimecli"
+const (
+	appName = "hianimecli"
+)
 
 type AppPaths struct {
 	ConfigDir string
