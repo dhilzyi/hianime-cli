@@ -60,4 +60,5 @@ type SearchResult struct {
 	NumberEpisodes int
 	Duration       int
 	Url            string
+	Year           int
 }

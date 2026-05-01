@@ -29,7 +29,7 @@ func (t *defaultHeadersTransport) RoundTrip(req *http.Request) (*http.Response, 
 	return t.baseTransport.RoundTrip(reqClone)
 }
 
-func NewSession(defaultDomain string) (*http.Client, error) {
+func newSession(defaultDomain string) (*http.Client, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return nil, err

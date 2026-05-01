@@ -5,6 +5,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 
@@ -22,19 +23,18 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 	table := tablewriter.NewTable(os.Stdout,
 
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{
-			Borders: tw.BorderNone, // This completely removes the outer box!
+			Borders: tw.BorderNone,
 			Symbols: symbols,
 			Settings: tw.Settings{
 				Separators: tw.Separators{
-					BetweenColumns: tw.On, // Turns on vertical lines
+					BetweenColumns: tw.On,
 				},
 				Lines: tw.Lines{
-					ShowTop: tw.On, // Keeps the dividing line under the header
+					ShowTop: tw.On,
 				},
 			},
 		})),
 
-		// Configure the Alignment
 		tablewriter.WithConfig(tablewriter.Config{
 			Header: tw.CellConfig{
 				Alignment: tw.CellAlignment{Global: tw.AlignLeft},
@@ -75,7 +75,7 @@ func DebugPrint(format string, contents ...any) {
 
 func PrintSearchResults(searchData []core.SearchResult, order []string) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"NO", "NAME", "TYPE", "DURATION", "NUMBER EPS"})
+	table.Header([]string{"NO", "NAME", "TYPE", "DURATION", "NUMBER EPS", "YEAR"})
 
 	typeOrders := order
 
@@ -93,15 +93,19 @@ func PrintSearchResults(searchData []core.SearchResult, order []string) {
 
 	for i := range searchData {
 		ins := searchData[i]
-		if ins.NumberEpisodes == 0 {
-			ins.NumberEpisodes = 1
+
+		durationStr := "N/A"
+		if ins.Duration > 0 {
+			durationStr = fmt.Sprintf("%dm", ins.Duration)
 		}
 
 		table.Append([]string{
 			fmt.Sprintf("[%d]", i+1),
-			ins.Type,
-			fmt.Sprintf("%dm", ins.Duration),
-			fmt.Sprintf("%d", ins.NumberEpisodes),
+			common.TruncatedString(ins.Titles.GetPreferredTitle(), 63),
+			formatString(ins.Type),
+			durationStr,
+			formatInt(ins.NumberEpisodes),
+			formatInt(ins.Year),
 		})
 	}
 

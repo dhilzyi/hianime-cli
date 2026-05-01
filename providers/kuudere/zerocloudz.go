@@ -54,7 +54,7 @@ func getStreamData(rawUrl string) (core.StreamData, error) {
 		return core.StreamData{}, err
 	}
 	defaultDomain := fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host)
-	client, err := NewSession(defaultDomain)
+	client, err := newSession(defaultDomain)
 	if err != nil {
 		return core.StreamData{}, err
 	}

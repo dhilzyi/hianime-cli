@@ -23,3 +23,11 @@ func GetBaseURL(rawUrl string) (string, error) {
 
 	return fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host), nil
 }
+
+func TruncatedString(raw string, maxChar int) string {
+	if len(raw) <= maxChar {
+		return raw
+	}
+
+	return raw[:maxChar] + "..."
+}

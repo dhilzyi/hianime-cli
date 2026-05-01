@@ -10,7 +10,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
-	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
 
 // original site: 'animenosub.to'
@@ -61,8 +60,6 @@ func (a *AnimeNoSub) GetSearchResults(rawInput string) ([]core.SearchResult, err
 	if err != nil {
 		return nil, err
 	}
-
-	ui.PrintSearchResults(searchresults, nil)
 
 	return searchresults, nil
 }
