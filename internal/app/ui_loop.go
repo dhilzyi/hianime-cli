@@ -1,34 +1,16 @@
-package main
+package app
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 
-	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/player"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
-
-type App struct {
-	Config  *config.Config
-	History []state.History
-	Cache   *Cache
-	AppDir  *config.AppPaths
-	Flags   *FlagsStruct
-	Scanner *bufio.Scanner
-}
-
-func (a *App) SaveHistory(updated *state.History) {
-	a.History = state.UpdateHistory(a.History, *updated)
-	if err := state.SaveHistory(a.History, a.AppDir.DataDir); err != nil {
-		log.Println("Failed to save history:", err)
-	}
-}
 
 func (a *App) handleMenu() {
 	var selectedHistory *state.History
@@ -45,6 +27,13 @@ func (a *App) handleMenu() {
 		seriesInput := a.Scanner.Text()
 		if seriesInput == "q" {
 			return
+		} else if seriesInput == "s" {
+			urlFromSearch := a.handleSearchView()
+			if urlFromSearch == "" {
+				continue
+			} else {
+				seriesInput = urlFromSearch
+			}
 		}
 		var err error
 		var url string
@@ -259,5 +248,68 @@ func (a *App) handleServerView(
 		} else {
 			continue
 		}
+	}
+}
+
+func (a *App) handleSearchView() string {
+	var provider core.Provider
+	for {
+		fmt.Println("1. Kuudere")
+		fmt.Println("2. AnimeNoSub")
+		fmt.Print("\nSelect provider site:")
+		a.Scanner.Scan()
+		searchInput := a.Scanner.Text()
+		searchInput = strings.TrimSpace(searchInput)
+		if searchInput == "q" {
+			return ""
+		}
+		if len(searchInput) == 0 || searchInput == "" {
+			fmt.Println("Error: invalid input")
+			continue
+		}
+
+		if searchInput == "1" {
+			provider, _ = getProvider(resolveParams{URL: "kuudere"})
+		} else {
+			provider, _ = getProvider(resolveParams{URL: "animenosub"})
+		}
+		break
+	}
+	for {
+		fmt.Print("\nInput Anime name to Search:")
+		a.Scanner.Scan()
+		searchInput := a.Scanner.Text()
+		searchInput = strings.TrimSpace(searchInput)
+		if searchInput == "q" {
+			return ""
+		}
+		if len(searchInput) == 0 || searchInput == "" {
+			fmt.Println("Error: invalid input")
+			continue
+		}
+		results, err := provider.GetSearchResults(searchInput)
+		if err != nil {
+			fmt.Println("Error: Fail to retrieve results:", err)
+		}
+		ui.PrintSearchResults(results, a.Config.SortType)
+
+		fmt.Print("\nInput number anime to watch:")
+		a.Scanner.Scan()
+		if a.Scanner.Text() == "q" {
+			return ""
+		}
+
+		searchInt, err := strconv.Atoi(a.Scanner.Text())
+		if err != nil {
+			fmt.Printf("Error: failed converting to int: %s\n", err.Error())
+			continue
+		}
+		if searchInt > 0 && searchInt <= len(results) {
+			return results[searchInt-1].Url
+		} else {
+			fmt.Println("Error: number is invalid.")
+			continue
+		}
+
 	}
 }
