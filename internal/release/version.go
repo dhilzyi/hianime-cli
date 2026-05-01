@@ -1,9 +1,12 @@
 package release
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/config"
@@ -11,28 +14,29 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const versionURL = "https://raw.githubusercontent.com/dhilzyi/hianime-cli/main/cmd/hianime-cli/version.txt"
+const (
+	repoOwner = "dhilzyi"
+	repoName  = "hianime-cli"
+)
 
-func Run(embedVer, dataDir string, cfg config.Config) (config.Config, bool, error) {
+func Run(embedVer, dataDir string, cfg *config.Config) (bool, error) {
 	latestVer, err := getLatestVersion()
 	if err != nil {
-		return config.Config{}, false, err
+		return false, err
 	}
 
-	var newCfg config.Config
 	var updated bool
-
 	if !semver.IsValid(embedVer) || !semver.IsValid(latestVer) {
-		return config.Config{}, false, fmt.Errorf("invalid semver format")
+		return false, fmt.Errorf("invalid semver format")
 	}
 
 	needMigrate := !semver.IsValid(cfg.LocalVersion) ||
 		semver.Compare(cfg.LocalVersion, embedVer) < 0
 
 	if needMigrate {
-		newCfg, err = migration.Run(dataDir, embedVer, cfg)
+		err = migration.Run(dataDir, embedVer, cfg)
 		if err != nil {
-			return config.Config{}, false, err
+			return false, err
 		}
 		updated = true
 	}
@@ -42,23 +46,7 @@ func Run(embedVer, dataDir string, cfg config.Config) (config.Config, bool, erro
 		fmt.Println(resultDecider)
 	}
 
-	return newCfg, updated, nil
-}
-
-func getLatestVersion() (string, error) {
-	resp, err := http.Get(versionURL)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	latest := strings.TrimSpace(string(body))
-
-	return latest, nil
+	return updated, nil
 }
 
 func updateDecider(current, latest string) string {
@@ -68,7 +56,7 @@ func updateDecider(current, latest string) string {
 		return ""
 	} else if cmp < 0 {
 		return fmt.Sprintf(
-			"New version is available: %s → %s\nRun 'hianime-cli -update' or `go install github.com/dhilzyi/hianime-cli@latest`\n",
+			"New version is available: %s → %s\nRun 'hianime-cli -update' or `go install github.com/dhilzyi/hianime-cli/cmd/hianime-cli@latest`\n",
 			current, latest,
 		)
 	} else {
@@ -78,4 +66,48 @@ func updateDecider(current, latest string) string {
 
 func migrationCheck(local, embed string) bool {
 	return semver.Compare(local, embed) < 0
+}
+
+func getLatestVersion() (string, error) {
+	goproxyDefault := "https://proxy.golang.org"
+	goproxy := goproxyDefault
+	cmd := exec.Command("go", "env", "GOPROXY")
+	output, err := cmd.Output()
+	if err == nil {
+		goproxy = strings.TrimSpace(string(output))
+	}
+
+	proxies := strings.Split(goproxy, ",")
+	if !slices.Contains(proxies, goproxyDefault) {
+		proxies = append(proxies, goproxyDefault)
+	}
+
+	for _, proxy := range proxies {
+		proxy = strings.TrimSpace(proxy)
+		proxy = strings.TrimRight(proxy, "/")
+		if proxy == "direct" || proxy == "off" {
+			continue
+		}
+
+		url := fmt.Sprintf("%s/github.com/%s/%s/@latest", proxy, repoOwner, repoName)
+		resp, err := http.Get(url)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+
+		var version struct{ Version string }
+		if err = json.Unmarshal(body, &version); err != nil {
+			continue
+		}
+
+		return version.Version, nil
+	}
+
+	return "", fmt.Errorf("failed to fetch latest version")
 }
