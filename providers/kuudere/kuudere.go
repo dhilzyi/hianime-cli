@@ -251,7 +251,7 @@ func fillUpSeriesData(s *core.SeriesData, rawResponse any, sUrl string) error {
 }
 
 func fetchQuerySearch(req *http.Request, baseUrl string) ([]core.SearchResult, error) {
-	client := *&http.Client{}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

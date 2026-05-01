@@ -30,10 +30,12 @@ type fileElement struct {
 	Size int64  `json:"size"`
 }
 
-var jimakuBaseUrl string = "https://jimaku.cc"
+const (
+	baseUrl = "https://jimaku.cc"
+)
 
 // Set your JimakuAPI to environment variable or just put it directly in this variable as a string.
-var jimakuApi string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
+var jimakuAPI string = os.Getenv("JIMAKU_API_KEY") // or "xxxxxxxxx"
 
 func downloadFile(url string, filePath string) (string, error) {
 	cleanPath := strings.TrimRight(filePath, ".")
@@ -66,8 +68,8 @@ func downloadFile(url string, filePath string) (string, error) {
 	return cleanPath, nil
 }
 
-func getFiles(entry_id, episodeNum int) (Files, error) {
-	urlFiles := fmt.Sprintf("%s/api/entries/%d/files", jimakuBaseUrl, entry_id)
+func getFiles(entryID, episodeNum int) (Files, error) {
+	urlFiles := fmt.Sprintf("%s/api/entries/%d/files", baseUrl, entryID)
 
 	req, err := http.NewRequest("GET", urlFiles, nil)
 	if err != nil {
@@ -79,7 +81,7 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 
 	req.URL.RawQuery = query.Encode()
 
-	req.Header.Add("Authorization", jimakuApi)
+	req.Header.Add("Authorization", jimakuAPI)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -94,36 +96,27 @@ func getFiles(entry_id, episodeNum int) (Files, error) {
 		return Files{}, err
 	}
 
-	// for i := range subsFiles {
-	// 	ins := subsFiles[i]
-	// 	sizeMB := float64(ins.Size) / (1024 * 1024)
-	// 	fmt.Printf("Name: %s\nUrl: %s\nSize: %.2f Mb\n\n", ins.Name, ins.Url, sizeMB)
-	// }
-
 	return subsFiles, nil
-
 }
 
 func getIdJimaku(anilistID int) (Search, error) {
-	urlSearch := fmt.Sprintf("%s/api/entries/search", jimakuBaseUrl)
+	urlSearch := fmt.Sprintf("%s/api/entries/search", baseUrl)
 
 	req, err := http.NewRequest("GET", urlSearch, nil)
 	if err != nil {
 		return Search{}, err
 	}
-	req.Header.Add("Authorization", jimakuApi)
-
 	query := req.URL.Query()
 	query.Add("anime", "true")
 	query.Add("anilist_id", fmt.Sprintf("%d", anilistID))
 
 	req.URL.RawQuery = query.Encode()
+	req.Header.Add("Authorization", jimakuAPI)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return Search{}, err
 	}
-
 	defer res.Body.Close()
 
 	var data Search
@@ -131,23 +124,19 @@ func getIdJimaku(anilistID int) (Search, error) {
 		return Search{}, fmt.Errorf("bad status when querying: %s", res.Status)
 	}
 
-	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
 		return Search{}, err
 	}
 
 	if len(data) == 0 {
-		return Search{}, fmt.Errorf("--! Nothing found in Jimaku")
-	}
-
-	if data[0].ID <= 0 {
-		return Search{}, fmt.Errorf("invalid jimaku id")
+		return Search{}, fmt.Errorf("no subtitle is found")
 	}
 
 	return data, nil
 }
 
 func GetSubsJimaku(seriesData *core.SeriesData, episodeNum int) ([]string, error) {
-	if jimakuApi == "" {
+	if jimakuAPI == "" {
 		return nil, fmt.Errorf("no Jimaku API found in the environment variable")
 	}
 	fmt.Println("\n--> Jimaku api key found. Querying into the Jimaku api....")

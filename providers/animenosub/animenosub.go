@@ -18,7 +18,6 @@ type AnimeNoSub struct {
 	serverData  map[string]string
 	episodeData map[string]core.Episode
 	inputUrl    string
-	baseUrl     string
 }
 
 type serverData struct {
