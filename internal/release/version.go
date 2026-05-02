@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/migration"
@@ -17,10 +18,12 @@ import (
 const (
 	repoOwner = "dhilzyi"
 	repoName  = "hianime-cli"
+
+	intervalCheck = 43200
 )
 
 func Run(embedVer, dataDir string, cfg *config.Config) (bool, error) {
-	latestVer, err := getLatestVersion()
+	latestVer, err := getLatestVersion(cfg)
 	if err != nil {
 		return false, err
 	}
@@ -34,7 +37,7 @@ func Run(embedVer, dataDir string, cfg *config.Config) (bool, error) {
 		semver.Compare(cfg.LocalVersion, embedVer) < 0
 
 	if needMigrate {
-		err = migration.Run(dataDir, embedVer, cfg)
+		err := migration.Run(dataDir, embedVer, cfg)
 		if err != nil {
 			return false, err
 		}
@@ -68,7 +71,37 @@ func migrationCheck(local, embed string) bool {
 	return semver.Compare(local, embed) < 0
 }
 
-func getLatestVersion() (string, error) {
+func getLatestVersion(cfg *config.Config) (string, error) {
+	var latestVer string
+	var err error
+
+	now := time.Now().Unix()
+	cacheValid := (now - cfg.LastUpdateCheck) < intervalCheck
+
+	if cacheValid && cfg.LatestVersion != "" {
+		latestVer = cfg.LatestVersion
+	} else {
+		latestVer, err = fetchLatestVersion()
+		if err != nil {
+			if cfg.LatestVersion != "" {
+				latestVer = cfg.LatestVersion
+			} else {
+				return "", err
+			}
+		} else {
+			cfg.LatestVersion = latestVer
+			cfg.LastUpdateCheck = now
+
+			if err := config.SaveConfig(*cfg); err != nil {
+				fmt.Println("Warning: Failed to save last update check to config")
+			}
+		}
+	}
+
+	return latestVer, nil
+}
+
+func fetchLatestVersion() (string, error) {
 	goproxyDefault := "https://proxy.golang.org"
 	goproxy := goproxyDefault
 	cmd := exec.Command("go", "env", "GOPROXY")

@@ -16,6 +16,9 @@ type Config struct {
 	EnglishOnly      bool     `json:"english_only"`      // whether user want importing english subtitle only or not into mpv
 	SortType         []string `json:"sort_type"`
 	LocalVersion     string   `json:"local_version"`
+
+	LatestVersion   string `json:"latest_version"`
+	LastUpdateCheck int64  `json:"last_update_check"`
 }
 
 func getDefaultConfig(ver string) *Config {
@@ -38,7 +41,7 @@ func LoadConfig(configDir, embedVer string) (*Config, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		if err := saveConfig(*cfg); err != nil {
+		if err := SaveConfig(*cfg); err != nil {
 			return nil, err
 		}
 		fmt.Println("Creating new config success")
@@ -51,7 +54,7 @@ func LoadConfig(configDir, embedVer string) (*Config, error) {
 	return cfg, nil
 }
 
-func saveConfig(rawData Config) error {
+func SaveConfig(rawData Config) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
 		return err
@@ -67,7 +70,7 @@ func saveConfig(rawData Config) error {
 
 func BumpConfig(cfg *Config, newVer string) error {
 	cfg.LocalVersion = newVer
-	if err := saveConfig(*cfg); err != nil {
+	if err := SaveConfig(*cfg); err != nil {
 		return err
 	}
 

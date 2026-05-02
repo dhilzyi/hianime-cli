@@ -21,7 +21,7 @@ func (a *App) handleMenu() {
 		} else {
 			fmt.Printf("\n--- No recent history found ---\n\n")
 		}
-		fmt.Print("\nEnter number or paste supported url to play: ")
+		fmt.Print("\nEnter number or paste supported url to play (or 's' for enter search): ")
 		a.Scanner.Scan()
 
 		seriesInput := a.Scanner.Text()
@@ -276,7 +276,7 @@ func (a *App) handleSearchView() string {
 		break
 	}
 	for {
-		fmt.Print("\nInput Anime name to Search:")
+		fmt.Print("\nInput anime name to search:")
 		a.Scanner.Scan()
 		searchInput := a.Scanner.Text()
 		searchInput = strings.TrimSpace(searchInput)
