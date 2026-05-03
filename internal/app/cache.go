@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -17,6 +17,13 @@ type CacheEntry struct {
 type Cache struct {
 	byProviderID map[string]*CacheEntry
 	byAnilistID  map[int]*CacheEntry
+}
+
+func NewCache() *Cache {
+	return &Cache{
+		byProviderID: make(map[string]*CacheEntry),
+		byAnilistID:  make(map[int]*CacheEntry),
+	}
 }
 
 func extractAnimeNoSubID(raw string) (string, error) {

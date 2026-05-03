@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -30,6 +30,15 @@ const (
 	UnknownProvider ProviderType = iota
 	AnimeNoSub
 	Kuudere
+)
+
+type InputType int
+
+const (
+	InputURL InputType = iota
+	InputHistoryIndex
+	InputCommand
+	InputAnilistID
 )
 
 func getProvider(p resolveParams) (core.Provider, ProviderType) {
@@ -116,6 +125,9 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(episodes) < 1 {
+		return nil, fmt.Errorf("no episodes data is found")
+	}
 
 	entry := &CacheEntry{
 		SeriesData: series,
@@ -124,8 +136,7 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 
 	if providerID != "" {
 		cache.byProviderID[providerID] = entry
-	}
-	if series.AnilistID != 0 {
+	} else if series.AnilistID != 0 {
 		cache.byAnilistID[series.AnilistID] = entry
 	} else if p.AnilistID != 0 {
 		cache.byAnilistID[p.AnilistID] = entry
@@ -150,22 +161,22 @@ func findOrCreateHistory(histories []state.History, seriesdata core.SeriesData, 
 		hist := &histories[i]
 
 		if hist.Provider != providerName {
-			continue // Skip this one, it belongs to a different website
+			continue
 		}
 
-		if seriesdata.AnilistID != 0 && hist.AnilistID == seriesdata.AnilistID {
+		if seriesdata.AnilistID != 0 && hist.Metadata.AnilistID == seriesdata.AnilistID {
 			fmt.Println("Info: history hit by anilistID")
 			return hist, nil
 		}
 
 		if seriesdata.Titles.EnglishTitle != "" &&
-			hist.EnglishName == seriesdata.Titles.EnglishTitle {
+			hist.Metadata.Titles.EnglishTitle == seriesdata.Titles.EnglishTitle {
 			fmt.Println("Info: history hit by english title")
 			return hist, nil
 		}
 
 		if seriesdata.Titles.RomajiTitle != "" &&
-			hist.JapaneseName == seriesdata.Titles.RomajiTitle {
+			hist.Metadata.Titles.RomajiTitle == seriesdata.Titles.RomajiTitle {
 			fmt.Println("Info: history hit by romaji title")
 			return hist, nil
 		}
@@ -183,25 +194,12 @@ func findOrCreateHistory(histories []state.History, seriesdata core.SeriesData, 
 	}
 
 	newHistory := &state.History{
-		Url:          seriesdata.SeriesUrl,
-		JapaneseName: seriesdata.Titles.RomajiTitle,
-		EnglishName:  seriesdata.Titles.EnglishTitle,
-		AnilistID:    seriesdata.AnilistID,
-		LastEpisode:  1,
-		Episode:      make(map[int]state.EpisodeProgress),
-		Provider:     providerName,
+		Metadata:    seriesdata,
+		LastEpisode: 1,
+		Episodes:    make(map[int]state.EpisodeProgress),
+		Provider:    providerName,
 	}
 
 	fmt.Println("Info: Create new history complete")
 	return newHistory, nil
-}
-
-func fillUpSeriesDataWithHistory(seriesdata *core.SeriesData, history state.History) error {
-	seriesdata.Titles.EnglishTitle = history.EnglishName
-	seriesdata.Titles.RomajiTitle = history.JapaneseName
-	seriesdata.AnilistID = history.AnilistID
-	seriesdata.SeriesUrl = history.Url
-
-	fmt.Println("Info: filling up seriesdata by history successfully")
-	return nil
 }

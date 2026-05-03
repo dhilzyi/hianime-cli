@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhilzyi/hianime-cli/cli"
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/jimaku"
@@ -27,44 +25,37 @@ var trackScript string
 var ScriptName string = "track.lua"
 
 func BuildMpvCommands(
-	cfg config.Settings,
+	cfg config.Config,
 	metaData core.SeriesData,
 	episodeData core.Episode,
 	serverData core.Server,
 	streamingData core.StreamData,
 	historyData state.History,
 	datadir string,
-	flags cli.FlagsStruct,
+	verbose bool,
 ) []string {
 	// Building title display for mpv
-	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, common.GetPreferredTitle(episodeData.Titles), serverData.Name)
+	displayTitle := fmt.Sprintf("[Ep. %d] %s (%s)", episodeData.Number, episodeData.Titles.GetPreferredTitle(), serverData.Name)
 
 	// Building headers if provided by providers
 	headerFields := []string{}
 	for k, v := range streamingData.Headers {
 		headerFields = append(headerFields, fmt.Sprintf("%s: %s", k, v))
 	}
-	fullHeaders := strings.Join(headerFields, ",")
 
 	// Building basic arguments
 	args := []string{
 		streamingData.Url,
 		"--ytdl-format=bestvideo+bestaudio/best",
-		fmt.Sprintf("--http-header-fields=%s", fullHeaders),
-		fmt.Sprintf("--title=%s", displayTitle),
+		"--http-header-fields=" + strings.Join(headerFields, ","),
+		"--title=" + displayTitle,
 		"--script-opts-append=osc-title=${title}",
-	}
-
-	// Use last position from history if exist
-	episodeProgress, exist := historyData.Episode[episodeData.Number]
-	if exist {
-		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position))
 	}
 
 	// Chapter command
 	if len(streamingData.Chapters) > 0 {
 		chapterFile := createChapters(streamingData.Chapters, episodeData)
-		fmt.Println("--> Info: Adding episode chapters to mpv.")
+		fmt.Println("--> Info: Adding episode chapters.")
 		args = append(args, fmt.Sprintf("--chapters-file=%s", chapterFile))
 	}
 
@@ -72,29 +63,28 @@ func BuildMpvCommands(
 	if cfg.JimakuEnable {
 		jimakuList, err := jimaku.GetSubsJimaku(&metaData, episodeData.Number)
 		if err != nil {
-			fmt.Printf("Error: Failed to get subs from jimaku: '%v'\n", err)
+			fmt.Printf("Warning: Failed to get subs from jimaku: '%v'\n", err)
 		} else {
-			if len(jimakuList) > 0 {
-				for i := range jimakuList {
-					args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
-				}
+			for i := range jimakuList {
+				args = append(args, fmt.Sprintf("--sub-file=%s", jimakuList[i]))
 			}
 		}
 	} else {
 		fmt.Printf("--> Warning: skipping jimaku\n")
 	}
 
-	// Building subs from providers
-	for _, track := range streamingData.Tracks {
-		if track.Type == "thumbnails" {
-			continue
-		}
-		if cfg.EnglishOnly && strings.Contains(strings.ToLower(track.Name), "english") {
-			continue
-		}
+	// Use last position from history if exist
+	episodeProgress, exist := historyData.Episodes[episodeData.Number]
+	if exist && episodeProgress.Position <= episodeProgress.Duration {
+		fmt.Println("--> Info: Load last position where you have left")
+		args = append(args, fmt.Sprintf("--start=%f", episodeProgress.Position))
+	}
 
-		fmt.Printf("--> Info: Adding subtitle '%s' from site to mpv.\n", track.Url)
-		args = append(args, fmt.Sprintf("--sub-file=%s", track.Url))
+	// Building subs from providers
+	subsProvided := buildProvidedSubs(cfg, streamingData.Tracks)
+	if len(subsProvided) > 0 {
+		fmt.Printf("--> Info: Adding '%d' subtitle from site.\n", len(subsProvided))
+		args = append(args, subsProvided...)
 	}
 
 	// Sub delay history command
@@ -111,7 +101,7 @@ func BuildMpvCommands(
 		fmt.Println("Warning: failed to include lua script")
 	}
 
-	if flags.MpvVerbose {
+	if verbose {
 		args = append(args, "--v")
 	}
 	return args
@@ -170,7 +160,6 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 			streamStarted = true
 		} else if strings.Contains(line, "::STATUS::") {
 			parts := strings.Split(line, "::STATUS::")
-
 			if len(parts) > 0 {
 				currentStr, totalStr, found := strings.Cut(parts[1], "/")
 
@@ -188,9 +177,7 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 					totalDuration = total
 				}
 			}
-
 			continue
-
 		} else if strings.Contains(line, "::SUB_DELAY::") {
 			parts := strings.Split(line, "::SUB_DELAY::")
 
@@ -200,7 +187,6 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 			}
 
 			subDelay = floatDelay
-
 			continue
 		}
 	}

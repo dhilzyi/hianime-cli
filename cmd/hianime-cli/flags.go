@@ -1,22 +1,16 @@
-package cli
+package main
 
 import (
 	"flag"
 	"fmt"
 	"os"
 
-	"github.com/dhilzyi/hianime-cli/internal/upgrade"
+	"github.com/dhilzyi/hianime-cli/internal/app"
+	"github.com/dhilzyi/hianime-cli/internal/release"
 )
 
-type FlagsStruct struct {
-	Debug      bool
-	Version    bool
-	MpvVerbose bool
-	Update     bool
-}
-
-func ParseFlags() FlagsStruct {
-	var flags FlagsStruct
+func ParseFlags() app.Flags {
+	var flags app.Flags
 
 	flag.BoolVar(&flags.Debug, "debug", false, "Enable debug")
 	flag.BoolVar(&flags.Version, "version", false, "Show version")
@@ -28,13 +22,13 @@ func ParseFlags() FlagsStruct {
 	return flags
 }
 
-func HandleFlags(flags FlagsStruct, version string) {
+func HandleFlags(flags app.Flags, version string) {
 	if flags.Version {
 		fmt.Println(version)
 		os.Exit(0)
 	}
 	if flags.Update {
-		if err := upgrade.UpdateCLI(); err != nil {
+		if err := release.UpdateCLI(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		} else {

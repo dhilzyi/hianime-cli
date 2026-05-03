@@ -23,19 +23,18 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 	table := tablewriter.NewTable(os.Stdout,
 
 		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{
-			Borders: tw.BorderNone, // This completely removes the outer box!
+			Borders: tw.BorderNone,
 			Symbols: symbols,
 			Settings: tw.Settings{
 				Separators: tw.Separators{
-					BetweenColumns: tw.On, // Turns on vertical lines
+					BetweenColumns: tw.On,
 				},
 				Lines: tw.Lines{
-					ShowTop: tw.On, // Keeps the dividing line under the header
+					ShowTop: tw.On,
 				},
 			},
 		})),
 
-		// Configure the Alignment
 		tablewriter.WithConfig(tablewriter.Config{
 			Header: tw.CellConfig{
 				Alignment: tw.CellAlignment{Global: tw.AlignLeft},
@@ -54,7 +53,7 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 		}
 
 		timeInfo := ""
-		if prog, ok := history.Episode[eps.Number]; ok {
+		if prog, ok := history.Episodes[eps.Number]; ok {
 			curr := prettyDuration(prog.Position)
 			total := prettyDuration(prog.Duration)
 			timeInfo = fmt.Sprintf("%s/%s", curr, total)
@@ -62,7 +61,7 @@ func PrintEpisodes(episodes []core.Episode, history state.History) {
 		table.Append([]string{
 			prefix,
 			fmt.Sprintf("%d", eps.Number),
-			common.GetPreferredTitle(eps.Titles),
+			eps.Titles.GetPreferredTitle(),
 			timeInfo,
 		})
 	}
@@ -76,7 +75,7 @@ func DebugPrint(format string, contents ...any) {
 
 func PrintSearchResults(searchData []core.SearchResult, order []string) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"NO", "NAME", "TYPE", "DURATION", "NUMBER EPS"})
+	table.Header([]string{"NO", "NAME", "TYPE", "DURATION", "NUMBER EPS", "YEAR"})
 
 	typeOrders := order
 
@@ -94,15 +93,19 @@ func PrintSearchResults(searchData []core.SearchResult, order []string) {
 
 	for i := range searchData {
 		ins := searchData[i]
-		if ins.NumberEpisodes == 0 {
-			ins.NumberEpisodes = 1
+
+		durationStr := "N/A"
+		if ins.Duration > 0 {
+			durationStr = fmt.Sprintf("%dm", ins.Duration)
 		}
 
 		table.Append([]string{
 			fmt.Sprintf("[%d]", i+1),
-			ins.Type,
-			fmt.Sprintf("%dm", ins.Duration),
-			fmt.Sprintf("%d", ins.NumberEpisodes),
+			common.TruncatedString(ins.Titles.GetPreferredTitle(), 63),
+			formatString(ins.Type),
+			durationStr,
+			formatInt(ins.NumberEpisodes),
+			formatInt(ins.Year),
 		})
 	}
 
@@ -133,16 +136,10 @@ func PrintRecentHistory(history []state.History) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.Header([]string{"NO", "NAME", "TYPE", "PROVIDER"})
 
-	var title string
 	var provider string
 	for i := range history {
 		inst := history[i]
-		if inst.JapaneseName != "" {
-			title = inst.JapaneseName
-		}
-		if inst.EnglishName != "" {
-			title = inst.EnglishName
-		}
+		title := inst.Metadata.Titles.GetPreferredTitle()
 		if inst.Provider != "" {
 			provider = inst.Provider
 		} else {

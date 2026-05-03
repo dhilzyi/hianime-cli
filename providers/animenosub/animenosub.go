@@ -10,7 +10,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
-	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
 
 // original site: 'animenosub.to'
@@ -19,7 +18,6 @@ type AnimeNoSub struct {
 	serverData  map[string]string
 	episodeData map[string]core.Episode
 	inputUrl    string
-	baseUrl     string
 }
 
 type serverData struct {
@@ -62,8 +60,6 @@ func (a *AnimeNoSub) GetSearchResults(rawInput string) ([]core.SearchResult, err
 		return nil, err
 	}
 
-	ui.PrintSearchResults(searchresults, nil)
-
 	return searchresults, nil
 }
 
@@ -88,7 +84,7 @@ func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 
 	for i := range epsList {
 		inst := epsList[i]
-		a.episodeData[common.GetPreferredTitle(inst.Titles)] = inst
+		a.episodeData[inst.Titles.GetPreferredTitle()] = inst
 	}
 
 	return epsList, seriesData, nil

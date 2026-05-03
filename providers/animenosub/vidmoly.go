@@ -27,7 +27,8 @@ func getStreamLink(vidmolyUrl string) (core.StreamData, error) {
 	if len(result) > 1 {
 		streamUrl = result[1]
 	} else {
-		fmt.Println("Coulnd't find the url link")
+		return core.StreamData{}, fmt.Errorf("could not find the stream url link")
+
 	}
 
 	header := make(map[string]string)

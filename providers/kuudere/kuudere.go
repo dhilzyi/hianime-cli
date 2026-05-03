@@ -10,7 +10,6 @@ import (
 
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
-	"github.com/dhilzyi/hianime-cli/internal/ui"
 )
 
 // original site: 'https://kuudere.ru/'
@@ -68,15 +67,14 @@ func (k *Kuudere) GetSearchResults(rawInput string) ([]core.SearchResult, error)
 
 		searchResult, err = fetchQuerySearch(req, baseUrl)
 		if err != nil {
-			fmt.Printf("Error: failed to fetch search result: %s", url)
+			fmt.Printf("Error: failed to fetch search in domain: '.%s'\n", domain)
+			fmt.Printf("Trying other domains...\n")
 		} else {
 			break
 		}
 	}
 
-	ui.PrintSearchResults(searchResult, nil)
-
-	return nil, nil
+	return searchResult, nil
 }
 
 func (k *Kuudere) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
@@ -254,7 +252,7 @@ func fillUpSeriesData(s *core.SeriesData, rawResponse any, sUrl string) error {
 }
 
 func fetchQuerySearch(req *http.Request, baseUrl string) ([]core.SearchResult, error) {
-	client := *&http.Client{}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -280,6 +278,7 @@ func fetchQuerySearch(req *http.Request, baseUrl string) ([]core.SearchResult, e
 			Duration:       data.Duration,
 			NumberEpisodes: data.EpCount,
 			Url:            fmt.Sprintf("%s/anime/%s", baseUrl, data.ID),
+			Year:           data.Year,
 		}
 		realdata = append(realdata, inst)
 

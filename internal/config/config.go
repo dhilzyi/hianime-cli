@@ -9,17 +9,20 @@ import (
 
 var configFilePath string
 
-type Settings struct {
+type Config struct {
 	JimakuEnable     bool     `json:"jimaku_enable"`     // for enabling jimaku
 	AutoSelectServer bool     `json:"auto_selectserver"` // whether user want use auto select server or manual input server
 	MpvPath          string   `json:"mpv_path"`          // manually set mpv path command
 	EnglishOnly      bool     `json:"english_only"`      // whether user want importing english subtitle only or not into mpv
 	SortType         []string `json:"sort_type"`
 	LocalVersion     string   `json:"local_version"`
+
+	LatestVersion   string `json:"latest_version"`
+	LastUpdateCheck int64  `json:"last_update_check"`
 }
 
-func getDefaultConfig(ver string) Settings {
-	return Settings{
+func getDefaultConfig(ver string) *Config {
+	return &Config{
 		JimakuEnable:     false,
 		AutoSelectServer: true,
 		MpvPath:          "",
@@ -29,55 +32,29 @@ func getDefaultConfig(ver string) Settings {
 	}
 }
 
-func LoadConfig(configDir, ver string) (Settings, error) {
-	defaultConfig := getDefaultConfig(ver)
+func LoadConfig(configDir, embedVer string) (*Config, error) {
+	cfg := getDefaultConfig(embedVer)
 
-	var configSession Settings
 	configFilePath = filepath.Join(configDir, "config.json")
-	oldPath := "config.json"
-
-	if configData, err := os.ReadFile(configFilePath); err == nil {
-		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Settings{}, err
+	fileData, err := os.ReadFile(configFilePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
 		}
-
-		fmt.Println("Load config success")
-		return configSession, nil
-	} else if !os.IsNotExist(err) {
-		return Settings{}, err
+		if err := SaveConfig(*cfg); err != nil {
+			return nil, err
+		}
+		fmt.Println("Creating new config success")
+		return cfg, nil
 	}
-
-	if configData, err := os.ReadFile(oldPath); err == nil {
-		if err = json.Unmarshal(configData, &configSession); err != nil {
-			return Settings{}, err
-		}
-
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return Settings{}, err
-		}
-		if err := saveConfig(configSession); err != nil {
-			return Settings{}, err
-		}
-
-		fmt.Println("Config migrated to new location from legacy location.")
-
-		return configSession, nil
-	} else if !os.IsNotExist(err) {
-		return Settings{}, err
+	if err := json.Unmarshal(fileData, &cfg); err != nil {
+		return nil, err
 	}
-
-	configSession = defaultConfig
-
-	if err := saveConfig(configSession); err != nil {
-		return Settings{}, err
-	}
-
-	fmt.Println("File config load success.")
-
-	return configSession, nil
+	fmt.Println("Load config success")
+	return cfg, nil
 }
 
-func saveConfig(rawData Settings) error {
+func SaveConfig(rawData Config) error {
 	jsonData, err := json.MarshalIndent(rawData, "", " ")
 	if err != nil {
 		return err
@@ -91,13 +68,11 @@ func saveConfig(rawData Settings) error {
 
 }
 
-func MigrateConfig(oldCfg Settings, ver string) (Settings, error) {
-	defaultConfig := getDefaultConfig(ver)
-	oldCfg.LocalVersion = defaultConfig.LocalVersion
-
-	if err := saveConfig(oldCfg); err != nil {
-		return Settings{}, err
+func BumpConfig(cfg *Config, newVer string) error {
+	cfg.LocalVersion = newVer
+	if err := SaveConfig(*cfg); err != nil {
+		return err
 	}
 
-	return oldCfg, nil
+	return nil
 }

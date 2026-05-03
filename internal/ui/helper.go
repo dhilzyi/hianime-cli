@@ -1,6 +1,9 @@
 package ui
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 func prettyDuration(seconds float64) string {
 	m := int(seconds) / 60
@@ -16,4 +19,18 @@ func typeOrder(t string, listType []string) int {
 	}
 
 	return len(listType)
+}
+
+func formatInt(val int) string {
+	if val == 0 {
+		return "N/A"
+	}
+	return strconv.Itoa(val)
+}
+
+func formatString(val string) string {
+	if val == "" {
+		return "N/A"
+	}
+	return val
 }
