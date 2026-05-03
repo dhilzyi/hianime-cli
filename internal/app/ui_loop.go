@@ -13,9 +13,9 @@ import (
 )
 
 func (a *App) handleMenu() {
-	var selectedHistory *state.History
-	var fetchResult *FetchResult
 	for {
+		var selectedHistory *state.History
+		var fetchResult *FetchResult
 		if len(a.History) > 0 {
 			ui.PrintRecentHistory(a.History)
 		} else {
@@ -93,10 +93,6 @@ func (a *App) handleEpisodeView(
 
 	for {
 		fmt.Printf("\n--- Series: %s ---\n\n", series.Titles.GetPreferredTitle())
-		if len(episodes) < 1 {
-			fmt.Println("Error: No episodes data is found")
-			break
-		}
 		ui.PrintEpisodes(episodes, *selectedHistory)
 
 		fmt.Print("\nEnter number episode to watch (or 'q' to go back): ")

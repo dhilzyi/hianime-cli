@@ -67,7 +67,8 @@ func (k *Kuudere) GetSearchResults(rawInput string) ([]core.SearchResult, error)
 
 		searchResult, err = fetchQuerySearch(req, baseUrl)
 		if err != nil {
-			fmt.Printf("Error: failed to fetch search result: %s", url)
+			fmt.Printf("Error: failed to fetch search in domain: '.%s'\n", domain)
+			fmt.Printf("Trying other domains...\n")
 		} else {
 			break
 		}

@@ -125,6 +125,9 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(episodes) < 1 {
+		return nil, fmt.Errorf("no episodes data is found")
+	}
 
 	entry := &CacheEntry{
 		SeriesData: series,
@@ -133,8 +136,7 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 
 	if providerID != "" {
 		cache.byProviderID[providerID] = entry
-	}
-	if series.AnilistID != 0 {
+	} else if series.AnilistID != 0 {
 		cache.byAnilistID[series.AnilistID] = entry
 	} else if p.AnilistID != 0 {
 		cache.byAnilistID[p.AnilistID] = entry
