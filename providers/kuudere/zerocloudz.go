@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
@@ -54,7 +55,7 @@ func getStreamData(rawUrl string) (core.StreamData, error) {
 		return core.StreamData{}, err
 	}
 	defaultDomain := fmt.Sprintf("%s://%s/", parsedUrl.Scheme, parsedUrl.Host)
-	client, err := newSession(defaultDomain)
+	client, err := common.NewSession()
 	if err != nil {
 		return core.StreamData{}, err
 	}
