@@ -1,11 +1,10 @@
-package kuudere
+package zerocloudz
 
 import (
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 )
 
 func fetchTokenApi(tokenReference, defaultDomain string, client *http.Client) (tokenApiResponse, error) {
@@ -45,13 +44,4 @@ func fetchRawHtml(inputUrl string, client *http.Client) (string, error) {
 	}
 
 	return string(htmlRaw), nil
-}
-
-func extractSeriesUrl(rawUrl, seriesUrl string) (string, error) {
-	parsedUrl, err := url.Parse(rawUrl)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s://%s%s", parsedUrl.Scheme, parsedUrl.Host, seriesUrl), nil
 }

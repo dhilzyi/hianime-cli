@@ -1,4 +1,4 @@
-package kuudere
+package zerocloudz
 
 import (
 	"crypto/aes"

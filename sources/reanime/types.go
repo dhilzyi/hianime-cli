@@ -1,6 +1,6 @@
 package reanime
 
-type seriesData struct {
+type seriesDataResponse struct {
 	Anime    anime `json:"anime"`
 	Episodes episodes
 }
@@ -20,6 +20,14 @@ type anime struct {
 type episodes struct {
 	Total      int
 	TotalPages int `json:"totalPages"`
+
+	Data []struct {
+		Duration      int
+		Title         string
+		TitleRomaji   string `json:"title_romaji"`
+		TitleJapanese string `json:"title_japanese"`
+		Number        int    `json:"episode_number"`
+	} `json:"data"`
 }
 
 type date struct {
@@ -32,4 +40,16 @@ type title struct {
 	English string
 	Native  string
 	Romaji  string
+}
+
+type serverApiResponse struct {
+	Success bool
+	Servers []struct {
+		ID         string `json:"$id"`
+		ServerName string `json:"serverName"`
+		DataLink   string `json:"dataLink"`
+		DataType   string `json:"dataType"`
+		Continue   bool   `json:"continue"`
+		Softsub    bool   `json:"softsub"`
+	}
 }

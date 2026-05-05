@@ -9,8 +9,8 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/providers/animenosub"
-	"github.com/dhilzyi/hianime-cli/providers/kuudere"
+	"github.com/dhilzyi/hianime-cli/sources/animenosub"
+	"github.com/dhilzyi/hianime-cli/sources/kuudere"
 )
 
 type FetchResult struct {

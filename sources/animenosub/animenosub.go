@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	vidmoly "github.com/dhilzyi/hianime-cli/hosts/vidomly"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -299,7 +300,7 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	}
 	var streamdata core.StreamData
 	if strings.Contains(iframeUrl, "vidmoly") {
-		streamdata, err = getStreamLink(iframeUrl)
+		streamdata, err = vidmoly.GetStreamLink(iframeUrl)
 		if err != nil {
 			return core.StreamData{}, err
 		}

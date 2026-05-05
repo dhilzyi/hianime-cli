@@ -1,4 +1,4 @@
-package kuudere
+package zerocloudz
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ type tokenApiResponse struct {
 	KeyFrag  string `json:"key_frag"`
 }
 
-func getStreamData(rawUrl string) (core.StreamData, error) {
+func GetStreamData(rawUrl string) (core.StreamData, error) {
 	parsedUrl, err := url.Parse(rawUrl)
 	if err != nil {
 		return core.StreamData{}, err

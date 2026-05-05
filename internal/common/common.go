@@ -15,6 +15,7 @@ func StringToQueryFormat(rawInput string) string {
 	return strings.Join(rawSplitted, "+")
 }
 
+// example: https://example.com
 func GetBaseURL(rawUrl string) (string, error) {
 	parsedURL, err := url.Parse(rawUrl)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dhilzyi/hianime-cli/hosts/zerocloudz"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -114,7 +115,7 @@ func (k *Kuudere) GetStreamData(keyServer string) (core.StreamData, error) {
 	if !ok {
 		return core.StreamData{}, fmt.Errorf("url server for following episode does not exist")
 	}
-	streamdata, err := getStreamData(url)
+	streamdata, err := zerocloudz.GetStreamData(url)
 	if err != nil {
 		return core.StreamData{}, err
 	}
