@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
+	"github.com/dhilzyi/hianime-cli/hosts/zencloudz"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -40,6 +42,7 @@ func (r *Reanime) Name() string {
 func (r *Reanime) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
 	return nil, nil
 }
+
 func (r *Reanime) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	seriesData, episodes, err := getSeriesData(r.client, r.inputUrl)
 	if err != nil {
@@ -53,7 +56,7 @@ func (r *Reanime) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 	return episodes, seriesData, nil
 }
 
-func (r *Reanime) GetServeres(selectedEpisode core.Episode) ([]core.Server, error) {
+func (r *Reanime) GetServers(selectedEpisode core.Episode) ([]core.Server, error) {
 	baseURL, err := common.GetBaseURL(r.inputUrl)
 	if err != nil {
 		return nil, err
@@ -68,7 +71,26 @@ func (r *Reanime) GetServeres(selectedEpisode core.Episode) ([]core.Server, erro
 	return servers, nil
 }
 func (r *Reanime) GetStreamData(keyServer string) (core.StreamData, error) {
-	return core.StreamData{}, nil
+	serverURL, ok := r.serverData[keyServer]
+	if !ok {
+		return core.StreamData{}, fmt.Errorf("no server data value found in map for key: %s", keyServer)
+	}
+	serverURL = strings.Replace(serverURL, "flixcloud", "zencloudz", 1)
+	streamdata, err := zerocloudz.GetStreamData(serverURL)
+	if err != nil {
+		return core.StreamData{}, err
+	}
+
+	return streamdata, nil
+}
+
+func (r *Reanime) ExtractProviderID() (string, error) {
+	id, err := getAnimeIDFromURL(r.inputUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
 
 func getSeriesData(client *http.Client, rawURL string) (*core.SeriesData, []core.Episode, error) {
@@ -156,9 +178,33 @@ func getServers(client *http.Client, serverURL string) ([]core.Server, map[strin
 		servers = append(servers, core.Server{
 			Name: srv.ServerName,
 			Type: srv.DataType,
+			Key:  srv.ID,
 		})
 		data[srv.ID] = srv.DataLink
 	}
+	sort.SliceStable(servers, func(i, j int) bool {
+		si, sj := servers[i], servers[j]
+
+		// sub before dub
+		typeRank := map[string]int{"sub": 0, "dub": 1}
+		ti, tj := typeRank[si.Type], typeRank[sj.Type]
+		if ti != tj {
+			return ti < tj
+		}
+
+		// within same type: HD-2 before HD-1, everything else after
+		nameRank := map[string]int{"HD-2": 0, "HD-1": 1}
+		ri, rj := nameRank[si.Name], nameRank[sj.Name]
+		// unknown names get rank 2
+		if _, ok := nameRank[si.Name]; !ok {
+			ri = 2
+		}
+		if _, ok := nameRank[sj.Name]; !ok {
+			rj = 2
+		}
+
+		return ri < rj
+	})
 
 	return servers, data, nil
 }

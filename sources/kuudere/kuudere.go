@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dhilzyi/hianime-cli/hosts/zerocloudz"
+	"github.com/dhilzyi/hianime-cli/hosts/zencloudz"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -43,6 +43,10 @@ func New(rawUrl string, inputAnilistID int) *Kuudere {
 
 func (k *Kuudere) Name() string {
 	return "Kuudere"
+}
+
+func (k *Kuudere) ExtractProviderID() (string, error) {
+	return "", fmt.Errorf("not implemented")
 }
 
 func (k *Kuudere) GetSearchResults(rawInput string) ([]core.SearchResult, error) {

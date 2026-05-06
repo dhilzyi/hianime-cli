@@ -5,7 +5,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -46,10 +45,15 @@ func BuildMpvCommands(
 	// Building basic arguments
 	args := []string{
 		streamingData.Url,
-		"--ytdl-format=bestvideo+bestaudio/best",
 		"--http-header-fields=" + strings.Join(headerFields, ","),
 		"--title=" + displayTitle,
 		"--script-opts-append=osc-title=${title}",
+		"--ytdl=no",
+		"--hwdec=auto",
+		"--profile=fast",
+
+		"--demuxer-lavf-o=allowed_extensions=ALL",
+		"--demuxer-max-bytes=150MiB",
 	}
 
 	// Chapter command
@@ -150,7 +154,7 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 			ui.DebugPrint("[MPV]", line)
 		}
 
-		if strings.Contains(line, "(+) Video --vid= ") || strings.Contains(line, "h264") {
+		if strings.Contains(line, "Video  --vid=") {
 			timer.Stop()
 			if !flag {
 				fmt.Println("\nStream is valid. Opening mpv")
@@ -192,7 +196,7 @@ func PlayMpv(cmdMain string, args []string, verbose bool) (bool, float64, float6
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Println(err)
+		return false, subDelay, lastPos, totalDuration
 	}
 
 	close(done)

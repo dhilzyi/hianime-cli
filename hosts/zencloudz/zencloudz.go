@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
@@ -78,11 +79,15 @@ func GetStreamData(rawUrl string) (core.StreamData, error) {
 	if err != nil {
 		return core.StreamData{}, err
 	}
+	origin := strings.TrimSuffix(defaultDomain, "/")
 
 	return core.StreamData{
 		Url: masterUrl,
 		Headers: map[string]string{
 			"Referer": defaultDomain,
+			"Origin":  origin,
+
+			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0",
 		},
 
 		Chapters: buildChaptersData(json5Data.Data.Chapters),

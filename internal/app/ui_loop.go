@@ -167,7 +167,7 @@ func (a *App) handleServerView(
 
 				fmt.Printf("--> Attempt: %d...\nSelecting '%s'....\n", i+1, selectedServer.Name)
 
-				attempt, err := provider.GetStreamData(selectedServer.Name)
+				attempt, err := provider.GetStreamData(selectedServer.Key)
 				if err == nil {
 					streamData = attempt
 					break
@@ -197,7 +197,7 @@ func (a *App) handleServerView(
 			if serverInputInt > 0 && serverInputInt <= len(servers) {
 				selectedServer = servers[serverInputInt-1]
 
-				attempt, err := provider.GetStreamData(selectedServer.Name)
+				attempt, err := provider.GetStreamData(selectedServer.Key)
 				if err == nil {
 					streamData = attempt
 				} else {
@@ -242,7 +242,7 @@ func (a *App) handleServerView(
 			a.SaveHistory(selectedHistory)
 			return
 		} else {
-			continue
+			break
 		}
 	}
 }

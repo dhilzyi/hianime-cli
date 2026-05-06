@@ -14,7 +14,5 @@ func getAnimeIDFromURL(raw string) (string, error) {
 	path := strings.Trim(parsed.Path, "/")
 	path = strings.TrimPrefix(path, "watch/")
 
-	build := fmt.Sprintf("%s://%s/anime/%s", parsed.Scheme, parsed.Host, path)
-
-	return build, err
+	return fmt.Sprintf("%s://%s/anime/%s", parsed.Scheme, parsed.Host, path), err
 }

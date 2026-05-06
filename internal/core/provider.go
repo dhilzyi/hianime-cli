@@ -6,4 +6,6 @@ type Provider interface {
 	GetServers(Episode) ([]Server, error)
 	GetStreamData(serverName string) (StreamData, error)
 	GetSearchResults(rawInput string) ([]SearchResult, error)
+
+	ExtractProviderID() (string, error)
 }
