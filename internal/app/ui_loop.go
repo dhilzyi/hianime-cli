@@ -250,7 +250,7 @@ func (a *App) handleServerView(
 func (a *App) handleSearchView() string {
 	var provider core.Provider
 	for {
-		fmt.Println("1. Kuudere")
+		fmt.Println("1. Reanime")
 		fmt.Println("2. AnimeNoSub")
 		fmt.Print("\nSelect provider site:")
 		a.Scanner.Scan()
@@ -265,47 +265,52 @@ func (a *App) handleSearchView() string {
 		}
 
 		if searchInput == "1" {
-			provider, _ = getProvider(resolveParams{URL: "kuudere"})
-		} else {
+			provider, _ = getProvider(resolveParams{URL: "reanime"})
+		} else if searchInput == "2" {
 			provider, _ = getProvider(resolveParams{URL: "animenosub"})
-		}
-		break
-	}
-	for {
-		fmt.Print("\nInput anime name to search:")
-		a.Scanner.Scan()
-		searchInput := a.Scanner.Text()
-		searchInput = strings.TrimSpace(searchInput)
-		if searchInput == "q" {
-			return ""
-		}
-		if len(searchInput) == 0 || searchInput == "" {
-			fmt.Println("Error: invalid input")
-			continue
-		}
-		results, err := provider.GetSearchResults(searchInput)
-		if err != nil {
-			fmt.Println("Error: Fail to retrieve results:", err)
-		}
-		ui.PrintSearchResults(results, a.Config.SortType)
-
-		fmt.Print("\nInput number anime to watch:")
-		a.Scanner.Scan()
-		if a.Scanner.Text() == "q" {
-			return ""
-		}
-
-		searchInt, err := strconv.Atoi(a.Scanner.Text())
-		if err != nil {
-			fmt.Printf("Error: failed converting to int: %s\n", err.Error())
-			continue
-		}
-		if searchInt > 0 && searchInt <= len(results) {
-			return results[searchInt-1].Url
 		} else {
-			fmt.Println("Error: number is invalid.")
 			continue
 		}
 
+		for {
+			fmt.Print("\nInput anime name to search:")
+			a.Scanner.Scan()
+			searchInput := a.Scanner.Text()
+			searchInput = strings.TrimSpace(searchInput)
+			if searchInput == "q" {
+				break
+			}
+			if len(searchInput) == 0 || searchInput == "" {
+				fmt.Println("Error: invalid input")
+				continue
+			}
+
+			// TODO: Implement cache data and previous or next options
+			results, err := provider.GetSearchResults(searchInput)
+			if err != nil {
+				fmt.Println("Error: Fail to retrieve results:", err)
+				continue
+			}
+			ui.PrintSearchResults(results, a.Config.SortType)
+
+			fmt.Print("\nInput number anime to watch:")
+			a.Scanner.Scan()
+			if a.Scanner.Text() == "q" {
+				continue
+			}
+
+			searchInt, err := strconv.Atoi(a.Scanner.Text())
+			if err != nil {
+				fmt.Printf("Error: failed converting to int: %s\n", err.Error())
+				continue
+			}
+			if searchInt > 0 && searchInt <= len(results) {
+				return results[searchInt-1].Url
+			} else {
+				fmt.Println("Error: number is invalid.")
+				continue
+			}
+
+		}
 	}
 }

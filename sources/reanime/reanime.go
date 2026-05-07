@@ -21,6 +21,8 @@ type Reanime struct {
 	serverData map[string]string
 	anilistID  int
 	client     *http.Client
+
+	queryData *query
 }
 
 func New(rawUrl string) (*Reanime, error) {
@@ -32,6 +34,7 @@ func New(rawUrl string) (*Reanime, error) {
 		inputUrl:   rawUrl,
 		serverData: make(map[string]string),
 		client:     client,
+		queryData:  &query{},
 	}, nil
 }
 
@@ -39,8 +42,21 @@ func (r *Reanime) Name() string {
 	return "Reanime"
 }
 
-func (r *Reanime) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
-	return nil, nil
+func (r *Reanime) GetSearchResults(rawQuery string) ([]core.SearchResult, error) {
+	// TODO: Add next and previous search
+	var searchResult []core.SearchResult
+	var err error
+	if r.queryData.Total == 0 || rawQuery != r.queryData.rawQuery {
+		var total int
+		searchResult, total, err = getSearch(rawQuery, 0)
+		if err != nil {
+			return nil, err
+		}
+		r.queryData.Total = total
+		r.queryData.rawQuery = rawQuery
+	}
+
+	return searchResult, nil
 }
 
 func (r *Reanime) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
@@ -207,4 +223,61 @@ func getServers(client *http.Client, serverURL string) ([]core.Server, map[strin
 	})
 
 	return servers, data, nil
+}
+
+func getSearch(rawQuery string, offset int) ([]core.SearchResult, int, error) {
+	baseURL := "https://reanime.to"
+	searchURL := fmt.Sprintf("%s/api/search", baseURL)
+	query := common.StringToQueryFormat(rawQuery)
+
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	param := req.URL.Query()
+	param.Add("q", query)
+	param.Add("limit", fmt.Sprintf("%d", 20))
+	param.Add("offset", fmt.Sprintf("%d", offset))
+
+	req.URL.RawQuery = param.Encode()
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	var searchResponse searchApiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searchResponse); err != nil {
+		return nil, 0, err
+	}
+	if searchResponse.Total <= 0 || len(searchResponse.Results) == 0 {
+		return nil, 0, fmt.Errorf("no data is retrieved from search api")
+	}
+
+	var results []core.SearchResult
+	for _, searchData := range searchResponse.Results {
+		var epsNum int
+
+		if searchData.Subbed != 0 {
+			epsNum = searchData.Subbed
+		} else {
+			epsNum = searchData.Episodes
+		}
+
+		results = append(results, core.SearchResult{
+			Titles: core.Title{
+				RomajiTitle:  searchData.Title.Romaji,
+				EnglishTitle: searchData.Title.English,
+				KanjiTitle:   searchData.Title.Native,
+			},
+			Type:           searchData.Format,
+			NumberEpisodes: epsNum,
+			Year:           searchData.SeasonYear,
+			Url:            fmt.Sprintf("%s/anime/%s", baseURL, searchData.AnimeID),
+		})
+	}
+	return results, searchResponse.Total, nil
 }

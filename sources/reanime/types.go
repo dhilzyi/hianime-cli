@@ -53,3 +53,26 @@ type serverApiResponse struct {
 		Softsub    bool   `json:"softsub"`
 	}
 }
+
+type searchApiResponse struct {
+	Results []result
+	Query   string
+	Total   int
+}
+
+type result struct {
+	AnimeID    string `json:"anime_id"`
+	Title      title
+	Status     string
+	Format     string
+	Episodes   int
+	Duration   string
+	SeasonYear int `json:"season_year"`
+	Subbed     int
+}
+
+type query struct {
+	Total      int
+	LastOffset int
+	rawQuery   string
+}
