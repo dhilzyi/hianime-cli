@@ -52,6 +52,7 @@ type Title struct {
 type Server struct {
 	Name string
 	Type string
+	Key  string
 }
 
 type SearchResult struct {

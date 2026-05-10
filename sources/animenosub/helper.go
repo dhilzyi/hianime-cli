@@ -62,3 +62,18 @@ func getEpsNumber(input string) (int, error) {
 
 	return numberInt, nil
 }
+
+func extractAnimeNoSubID(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+
+	path := strings.Trim(u.Path, "/")
+	path = strings.TrimPrefix(path, "anime/")
+
+	re := regexp.MustCompile(`-episode-\d+/?$`)
+	path = re.ReplaceAllString(path, "")
+
+	return path, nil
+}

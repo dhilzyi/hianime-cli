@@ -9,8 +9,8 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
-	"github.com/dhilzyi/hianime-cli/providers/animenosub"
-	"github.com/dhilzyi/hianime-cli/providers/kuudere"
+	"github.com/dhilzyi/hianime-cli/sources/animenosub"
+	"github.com/dhilzyi/hianime-cli/sources/reanime"
 )
 
 type FetchResult struct {
@@ -30,6 +30,7 @@ const (
 	UnknownProvider ProviderType = iota
 	AnimeNoSub
 	Kuudere
+	Reanime
 )
 
 type InputType int
@@ -44,8 +45,12 @@ const (
 func getProvider(p resolveParams) (core.Provider, ProviderType) {
 	if strings.Contains(p.URL, "animenosub") {
 		return animenosub.New(p.URL), AnimeNoSub
-	} else if strings.Contains(p.URL, "kuudere") || p.AnilistID != 0 {
-		return kuudere.New(p.URL, p.AnilistID), Kuudere
+	} else if strings.Contains(p.URL, "reanime") {
+		r, err := reanime.New(p.URL)
+		if err != nil {
+			return nil, UnknownProvider
+		}
+		return r, Reanime
 	}
 	return nil, UnknownProvider
 }
@@ -95,30 +100,18 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 	provider, providerType := getProvider(p)
 	if provider == nil {
 		return nil, fmt.Errorf("provider is not found")
+	} else if providerType == Kuudere {
+		return nil, fmt.Errorf("Kuudere is deprecated")
 	}
 
-	var providerID string
-	var err error
-	if providerType == AnimeNoSub && p.URL != "" {
-		providerID, err = extractAnimeNoSubID(p.URL)
-		if err != nil {
-			return nil, err
-		}
-		if entry, ok := cache.byProviderID[providerID]; ok {
-			fmt.Println("Info: cache hit by unique URL path")
+	providerID, err := provider.ExtractProviderID()
+	if err != nil {
+		return nil, err
+	}
+	if entry, ok := cache.byProviderID[providerID]; ok {
+		fmt.Println("Info: cache hit by providerID")
 
-			return fromCache(entry, p), nil
-		}
-	} else if providerType == Kuudere && p.URL != "" {
-		providerID, err = extractKuudereID(p.URL)
-		if err != nil {
-			return nil, err
-		}
-		if entry, ok := cache.byProviderID[providerID]; ok {
-			fmt.Println("Info: cache hit by unique URL path")
-
-			return fromCache(entry, p), nil
-		}
+		return fromCache(entry, p), nil
 	}
 
 	episodes, series, err := handleURLInput(p, provider)

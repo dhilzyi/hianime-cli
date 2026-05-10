@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	vidmoly "github.com/dhilzyi/hianime-cli/hosts/vidomly"
 	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
@@ -108,9 +109,10 @@ func (a *AnimeNoSub) GetServers(selectedEpisode core.Episode) ([]core.Server, er
 		s := core.Server{
 			Name: server.ServerName,
 			Type: server.Type,
+			Key:  server.ServerName,
 		}
 
-		a.serverData[server.ServerName] = server.Value
+		a.serverData[s.Key] = server.Value
 
 		switch server.Type {
 		case "RAW":
@@ -138,6 +140,19 @@ func (a *AnimeNoSub) GetStreamData(keyServer string) (core.StreamData, error) {
 	}
 
 	return streamData, nil
+}
+
+func (a *AnimeNoSub) ExtractProviderID() (string, error) {
+	if a.inputUrl == "" {
+		return "", fmt.Errorf("no url is inputted found")
+	}
+
+	id, err := extractAnimeNoSubID(a.inputUrl)
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
 
 func getEpsListFromSeriesPage(seriesPageUrl string) ([]core.Episode, *core.SeriesData, error) {
@@ -299,7 +314,7 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	}
 	var streamdata core.StreamData
 	if strings.Contains(iframeUrl, "vidmoly") {
-		streamdata, err = getStreamLink(iframeUrl)
+		streamdata, err = vidmoly.GetStreamLink(iframeUrl)
 		if err != nil {
 			return core.StreamData{}, err
 		}
