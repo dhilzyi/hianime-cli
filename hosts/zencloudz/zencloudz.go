@@ -10,6 +10,11 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
+// supported site
+// zencloudz.cc, flixcloud.cc
+
+// credit and thanks to 'https://github.com/yogesh-hacker/MediaVanced'
+
 type rawJson5 struct {
 	Type string    `json:"type"`
 	Data json5Data `json:"data"`

@@ -38,6 +38,10 @@ func fetchRawHtml(inputUrl string, client *http.Client) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("bad response status: %d", resp.StatusCode)
+	}
+
 	htmlRaw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
