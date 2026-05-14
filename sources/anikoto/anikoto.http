@@ -1,0 +1,55 @@
+### 
+
+@base = https://anikototv.to
+@megaplay = https://megaplay.buzz
+@user = Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0
+@vidwish = https://vidwish.live
+
+
+### GET EPISODES
+
+GET https://anikototv.to/ajax/episode/list/8689?vrf= HTTP/2
+Host: anikototv.to
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0
+Referer: https://anikototv.to/
+X-Requested-With: XMLHttpRequest
+
+>> episodes_list.json
+
+
+### MEGAPLAY STREAM URL
+
+GET https://megaplay.buzz/stream/s-2/873200600/sub HTTP/2
+Referer: {{base}}/
+User-Agent: {{user}}
+
+>> megaplay.html
+
+
+### MEGAPLAY API URL
+
+GET {{megaplay}}/stream/getSources?id=176081&id=176081 HTTP/2
+Referer: {{megaplay}}/
+Accept: */*
+X-Requested-With: XMLHttpRequest
+
+>> api_response.json
+
+
+### VIDWISH STREAM URL
+
+GET https://vidwish.live/stream/s-2/873200600/sub HTTP/2
+Referer: {{base}}/
+User-Agent: {{user}}
+
+>> vidwish.html
+
+
+### VIDWISH API URL
+
+GET {{vidwish}}/stream/getSources?id=174512&id=174512 HTTP/2
+Referer: {{vidwish}}/
+Accept: */*
+X-Requested-With: XMLHttpRequest
+
+>> vidwish_api_response.json
