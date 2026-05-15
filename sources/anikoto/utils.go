@@ -1,9 +1,30 @@
 package anikoto
 
 import (
+	"crypto/rand"
+	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/dhilzyi/hianime-cli/internal/core"
 )
+
+type series struct {
+	core.SeriesData
+	animeID int
+}
+
+type episode struct {
+	core.Episode
+	id           string
+	serverDataId string
+}
+
+type server struct {
+	core.Server
+	DataLinkId string
+}
 
 type ajaxResponse struct {
 	Status int
@@ -31,6 +52,79 @@ func toValidHtml(rawHtml string) (string, error) {
 			`\\`, `\`,
 		).Replace(rawHtml)
 	}
+	// if clean == rawHtml {
+	// 	return "", fmt.Errorf("failed to clean html")
+	// }
 
 	return clean, nil
+}
+
+func parseEpisodes(cleanedHtml string) (map[int]episode, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(cleanedHtml))
+	if err != nil {
+		return nil, err
+	}
+	episodes := make(map[int]episode)
+	doc.Find("li > a").Each(func(i int, s *goquery.Selection) {
+		serverDataIds, exists := s.Attr("data-ids")
+		if !exists {
+			return
+		}
+		episodeDataId, _ := s.Attr("data-id")
+		rawNumEp, exists := s.Attr("data-num")
+		if !exists && rawNumEp == "" {
+			rawNumEp = s.Find("b").Text()
+		}
+		numEp, err := strconv.Atoi(rawNumEp)
+		if err != nil {
+			fmt.Println("Could not convert episode number to integer")
+			return
+		}
+		jpTitle, _ := s.Find("span").Attr("data-jp")
+		episodes[numEp] = episode{
+			id:           episodeDataId,
+			serverDataId: serverDataIds,
+
+			Episode: core.Episode{
+				Titles: core.Title{
+					RomajiTitle:  jpTitle,
+					EnglishTitle: s.Find("span").Text(),
+				},
+				Number: numEp,
+			},
+		}
+	})
+
+	return episodes, nil
+}
+
+func parseServers(cleanHtml string) (map[string]server, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(cleanHtml))
+	if err != nil {
+		return nil, err
+	}
+	servers := make(map[string]server)
+	doc.Find("div[data-type]").Each(func(i int, s *goquery.Selection) {
+		typeVid := strings.TrimSpace(s.Find("label").Text())
+		s.Find("li").Each(func(i int, s2 *goquery.Selection) {
+			serverName := strings.TrimSpace(s2.Text())
+			dataLinkId, exists := s2.Attr("data-link-id")
+			if !exists {
+				fmt.Printf("Could not find data-link-id on 'li' element for: %s\n", serverName)
+				return
+			}
+			key := serverName + rand.Text()
+
+			servers[key] = server{
+				Server: core.Server{
+					Name: serverName + fmt.Sprintf("[%s]", typeVid),
+					Type: typeVid,
+					Key:  key,
+				},
+				DataLinkId: dataLinkId,
+			}
+		})
+	})
+
+	return servers, nil
 }

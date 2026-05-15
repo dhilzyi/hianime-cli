@@ -6,6 +6,13 @@
 @vidwish = https://vidwish.live
 
 
+### GET SERIES DATA ANIKOTO
+
+GET https://anikototv.to/watch/classroom-of-the-elite-iv-rzzt2 HTTP/2
+
+>> raw.html
+
+
 ### GET EPISODES
 
 GET https://anikototv.to/ajax/episode/list/8689?vrf= HTTP/2
