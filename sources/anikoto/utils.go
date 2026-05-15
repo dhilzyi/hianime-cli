@@ -130,7 +130,7 @@ func parseServers(cleanHtml string) (map[string]server, error) {
 	return servers, nil
 }
 
-func parseSearch(body io.ReadCloser) ([]core.SearchResult, error) {
+func parseSearch(body io.ReadCloser) (*core.SearchPage, error) {
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,10 @@ func parseSearch(body io.ReadCloser) ([]core.SearchResult, error) {
 		}
 		typeSeries := s.Find("div.right").Text()
 		epsTotalRaw := s.Find("span.total > span").Text()
-		epsTotal, _ := strconv.Atoi(epsTotalRaw)
+		epsTotal, err := strconv.Atoi(epsTotalRaw)
+		if err != nil {
+			epsTotal = 1
+		}
 		searches = append(searches, core.SearchResult{
 			Url:            seriesURL,
 			Type:           typeSeries,
@@ -159,5 +162,41 @@ func parseSearch(body io.ReadCloser) ([]core.SearchResult, error) {
 			},
 		})
 	})
-	return searches, nil
+	liActiveEle := doc.Find(".page-item.active")
+	currPage := liActiveEle.Find("a").Text()
+	prevPage := liActiveEle.Prev().Find("a").Text()
+	nextPage := liActiveEle.Next().Find("a").Text()
+
+	var hasPrev bool
+	var hasNext bool
+	currPageInt, err := strconv.Atoi(currPage)
+	if err != nil {
+		currPageInt = 1
+	} else {
+		hasPrev, hasNext = checkNextAndPrev(currPageInt, prevPage, nextPage)
+	}
+
+	return &core.SearchPage{
+		Results: searches,
+		HasPrev: hasPrev,
+		HasNext: hasNext,
+		Page:    currPageInt,
+	}, nil
+}
+
+func checkNextAndPrev(curInt int, prev, next string) (bool, bool) {
+	var hasPrev bool
+	var hasNext bool
+
+	prevInt, _ := strconv.Atoi(prev)
+	nextInt, _ := strconv.Atoi(next)
+
+	if curInt == (prevInt+1) && prevInt != 0 {
+		hasPrev = true
+	}
+	if curInt == (nextInt-1) && nextInt != 0 {
+		hasNext = true
+	}
+
+	return hasPrev, hasNext
 }

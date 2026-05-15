@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/dhilzyi/hianime-cli/internal/common"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
@@ -171,9 +170,7 @@ func (s session) getServerUrl(dataLinkId string) (string, error) {
 
 	return ajaxResp.Result.Url, nil
 }
-func (s session) getSearch(rawQuery string) ([]core.SearchResult, error) {
-	query := common.StringToQueryFormat(rawQuery)
-	searchURL := fmt.Sprintf("%s/filter?keyword=%s", baseURL, query)
+func (s session) getSearch(searchURL string) (*core.SearchPage, error) {
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
 		return nil, err

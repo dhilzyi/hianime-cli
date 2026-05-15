@@ -44,13 +44,13 @@ func (a *AnimeNoSub) GetSeriesData() (core.SeriesData, error) {
 	return seriesData, nil
 }
 
-func (a *AnimeNoSub) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
+func (a *AnimeNoSub) GetSearchResults(rawInput string, page int) (core.SearchPage, error) {
 	keywordVal := common.StringToQueryFormat(rawInput)
 
 	url := "https://animenosub.to"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
 	query := req.URL.Query()
 	query.Add("s", keywordVal)
@@ -58,10 +58,11 @@ func (a *AnimeNoSub) GetSearchResults(rawInput string) ([]core.SearchResult, err
 
 	searchresults, err := fetchSearchResult(req)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
+	fmt.Println(searchresults)
 
-	return searchresults, nil
+	return core.SearchPage{}, nil
 }
 
 func (a *AnimeNoSub) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
@@ -334,30 +335,30 @@ func getStreamDataFromValue(valueEncrypted string) (core.StreamData, error) {
 	return streamdata, nil
 }
 
-func fetchSearchResult(req *http.Request) ([]core.SearchResult, error) {
+func fetchSearchResult(req *http.Request) (core.SearchPage, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
 	defer resp.Body.Close()
 
 	results, err := getResults(resp)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
 
 	return results, nil
 }
 
-func getResults(resp *http.Response) ([]core.SearchResult, error) {
+func getResults(resp *http.Response) (core.SearchPage, error) {
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
 	listUpdEle := doc.Find("div.listupd")
 
-	var data []core.SearchResult
+	var data core.SearchPage
 	listUpdEle.Find("a").Each(func(i int, s *goquery.Selection) {
 		urlSeries, exists := s.Attr("href")
 		if !exists {
@@ -371,7 +372,7 @@ func getResults(resp *http.Response) ([]core.SearchResult, error) {
 			Url:    urlSeries,
 			Type:   typeAnime,
 		}
-		data = append(data, ins)
+		data.Results = append(data.Results, ins)
 	})
 
 	return data, nil

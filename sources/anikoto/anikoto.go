@@ -102,13 +102,16 @@ func (a *Anikoto) GetStreamData(serverKey string) (core.StreamData, error) {
 	return streamData, nil
 }
 
-func (a *Anikoto) GetSearchResults(rawQuery string) ([]core.SearchResult, error) {
-	searchResult, err := a.session.getSearch(rawQuery)
+func (a *Anikoto) GetSearchResults(rawQuery string, page int) (core.SearchPage, error) {
+	query := common.StringToQueryFormat(rawQuery)
+	searchURL := fmt.Sprintf("%s/filter?keyword=%s&page=%d", baseURL, query, page)
+	searchResult, err := a.session.getSearch(searchURL)
 	if err != nil {
-		return nil, err
+		return core.SearchPage{}, err
 	}
+	searchResult.Query = rawQuery
 
-	return searchResult, nil
+	return *searchResult, nil
 }
 
 func (a *Anikoto) ExtractProviderID() (string, error) {
