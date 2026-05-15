@@ -53,7 +53,7 @@ func getProvider(p resolveParams) (core.Provider, ProviderType) {
 			return nil, UnknownProvider
 		}
 		return r, Reanime
-	} else if strings.Contains(p.URL, "anikototv") {
+	} else if strings.Contains(p.URL, "anikoto") {
 		a, err := anikoto.New(p.URL)
 		if err != nil {
 			return nil, UnknownProvider
