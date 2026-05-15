@@ -9,6 +9,7 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/anilist"
 	"github.com/dhilzyi/hianime-cli/internal/core"
 	"github.com/dhilzyi/hianime-cli/internal/state"
+	"github.com/dhilzyi/hianime-cli/sources/anikoto"
 	"github.com/dhilzyi/hianime-cli/sources/animenosub"
 	"github.com/dhilzyi/hianime-cli/sources/reanime"
 )
@@ -31,6 +32,7 @@ const (
 	AnimeNoSub
 	Kuudere
 	Reanime
+	Anikoto
 )
 
 type InputType int
@@ -51,6 +53,12 @@ func getProvider(p resolveParams) (core.Provider, ProviderType) {
 			return nil, UnknownProvider
 		}
 		return r, Reanime
+	} else if strings.Contains(p.URL, "anikototv") {
+		a, err := anikoto.New(p.URL)
+		if err != nil {
+			return nil, UnknownProvider
+		}
+		return a, Anikoto
 	}
 	return nil, UnknownProvider
 }
@@ -98,10 +106,10 @@ func ResolveInput(p resolveParams, cache *Cache) (*FetchResult, error) {
 	}
 
 	provider, providerType := getProvider(p)
-	if provider == nil {
+	if provider == nil || providerType == UnknownProvider {
 		return nil, fmt.Errorf("provider is not found")
 	} else if providerType == Kuudere {
-		return nil, fmt.Errorf("Kuudere is deprecated")
+		return nil, fmt.Errorf("kuudere is deprecated")
 	}
 
 	providerID, err := provider.ExtractProviderID()

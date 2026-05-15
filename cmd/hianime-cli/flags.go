@@ -35,4 +35,10 @@ func HandleFlags(flags app.Flags, version string) {
 			os.Exit(0)
 		}
 	}
+	if flags.MpvVerbose {
+		fmt.Println("[info] mpv verbose flag is active")
+	}
+	if flags.Debug {
+		fmt.Println("[info] debug flag is active")
+	}
 }
