@@ -12,6 +12,9 @@ import (
 	"github.com/dhilzyi/hianime-cli/internal/core"
 )
 
+// Supported site
+// [ vidwish.live, megaplay.buzz ]
+
 const (
 	userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
 )
@@ -92,7 +95,7 @@ func GetStreamData(rawURL, referer string) (core.StreamData, error) {
 			Name:  "Outro",
 		},
 	}
-	streamdata := core.StreamData{
+	return core.StreamData{
 		Url: sources.Sources.File,
 		Headers: map[string]string{
 			"accept":     "*/*",
@@ -102,9 +105,7 @@ func GetStreamData(rawURL, referer string) (core.StreamData, error) {
 		},
 		Tracks:   tracks,
 		Chapters: chapters,
-	}
-
-	return streamdata, nil
+	}, nil
 }
 
 func (s session) getAnimeId(rawURL string) (int, error) {
