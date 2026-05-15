@@ -42,15 +42,15 @@ func (r *Reanime) Name() string {
 	return "Reanime"
 }
 
-func (r *Reanime) GetSearchResults(rawQuery string) ([]core.SearchResult, error) {
+func (r *Reanime) GetSearchResults(rawQuery string, page int) (core.SearchPage, error) {
 	// TODO: Add next and previous search
-	var searchResult []core.SearchResult
+	var searchResult core.SearchPage
 	var err error
 	if r.queryData.Total == 0 || rawQuery != r.queryData.rawQuery {
 		var total int
 		searchResult, total, err = getSearch(rawQuery, 0)
 		if err != nil {
-			return nil, err
+			return core.SearchPage{}, err
 		}
 		r.queryData.Total = total
 		r.queryData.rawQuery = rawQuery
@@ -225,14 +225,14 @@ func getServers(client *http.Client, serverURL string) ([]core.Server, map[strin
 	return servers, data, nil
 }
 
-func getSearch(rawQuery string, offset int) ([]core.SearchResult, int, error) {
+func getSearch(rawQuery string, offset int) (core.SearchPage, int, error) {
 	baseURL := "https://reanime.to"
 	searchURL := fmt.Sprintf("%s/api/search", baseURL)
 	query := common.StringToQueryFormat(rawQuery)
 
 	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
-		return nil, 0, err
+		return core.SearchPage{}, 0, err
 	}
 	param := req.URL.Query()
 	param.Add("q", query)
@@ -245,19 +245,19 @@ func getSearch(rawQuery string, offset int) ([]core.SearchResult, int, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, err
+		return core.SearchPage{}, 0, err
 	}
 	defer resp.Body.Close()
 
 	var searchResponse searchApiResponse
 	if err := json.NewDecoder(resp.Body).Decode(&searchResponse); err != nil {
-		return nil, 0, err
+		return core.SearchPage{}, 0, err
 	}
 	if searchResponse.Total <= 0 || len(searchResponse.Results) == 0 {
-		return nil, 0, fmt.Errorf("no data is retrieved from search api")
+		return core.SearchPage{}, 0, fmt.Errorf("no data is retrieved from search api")
 	}
 
-	var results []core.SearchResult
+	var results core.SearchPage
 	for _, searchData := range searchResponse.Results {
 		var epsNum int
 
@@ -267,7 +267,7 @@ func getSearch(rawQuery string, offset int) ([]core.SearchResult, int, error) {
 			epsNum = searchData.Episodes
 		}
 
-		results = append(results, core.SearchResult{
+		results.Results = append(results.Results, core.SearchResult{
 			Titles: core.Title{
 				RomajiTitle:  searchData.Title.Romaji,
 				EnglishTitle: searchData.Title.English,

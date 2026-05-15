@@ -248,69 +248,88 @@ func (a *App) handleServerView(
 }
 
 func (a *App) handleSearchView() string {
-	var provider core.Provider
 	for {
-		fmt.Println("1. Reanime")
-		fmt.Println("2. AnimeNoSub")
+		providers := []string{
+			"Anikoto",
+			"Reanime",
+			"Animenosub",
+		}
+		for i, p := range providers {
+			fmt.Printf("[%d] %s ", i+1, p)
+		}
 		fmt.Print("\nSelect provider site:")
 		a.Scanner.Scan()
-		searchInput := a.Scanner.Text()
-		searchInput = strings.TrimSpace(searchInput)
-		if searchInput == "q" {
+		provInput := a.Scanner.Text()
+		provInput = strings.TrimSpace(provInput)
+		if provInput == "q" {
 			return ""
 		}
-		if len(searchInput) == 0 || searchInput == "" {
-			fmt.Println("Error: invalid input")
+		provInputInt, err := strconv.Atoi(strings.TrimSpace(provInput))
+		if err != nil {
+			fmt.Println("invalid input. must be an integer")
+			continue
+		}
+		if provInputInt > len(providers) || provInputInt < 1 {
+			fmt.Println("input index is out of range")
 			continue
 		}
 
-		if searchInput == "1" {
-			provider, _ = getProvider(resolveParams{URL: "reanime"})
-		} else if searchInput == "2" {
-			provider, _ = getProvider(resolveParams{URL: "animenosub"})
-		} else {
+		provider, _ := getProvider(resolveParams{URL: strings.ToLower(providers[provInputInt-1])})
+		fmt.Printf("Info: '%s' is selected\n", provider.Name())
+
+		searchState, err := NewSearchState(provider)
+		if err != nil {
+			fmt.Println(err)
 			continue
 		}
 
 		for {
-			fmt.Print("\nInput anime name to search:")
+			fmt.Print("\nSearch: ")
 			a.Scanner.Scan()
 			searchInput := a.Scanner.Text()
 			searchInput = strings.TrimSpace(searchInput)
-			if searchInput == "q" {
-				break
-			}
 			if len(searchInput) == 0 || searchInput == "" {
 				fmt.Println("Error: invalid input")
 				continue
 			}
-
-			// TODO: Implement cache data and previous or next options
-			results, err := provider.GetSearchResults(searchInput)
+			err := searchState.Search(searchInput)
 			if err != nil {
 				fmt.Println("Error: Fail to retrieve results:", err)
 				continue
 			}
-			ui.PrintSearchResults(results, a.Config.SortType)
+			for {
+				ui.PrintSearchResults(searchState.Results(), a.Config.SortType)
 
-			fmt.Print("\nInput number anime to watch:")
-			a.Scanner.Scan()
-			if a.Scanner.Text() == "q" {
-				continue
-			}
+				prompt := "[number] to select"
+				if searchState.HasNext() {
+					prompt += " | [n] next"
+				}
+				if searchState.HasPrev() {
+					prompt += " | [p] prev"
+				}
+				fmt.Print("\n" + prompt + ": ")
+				a.Scanner.Scan()
+				input := strings.TrimSpace(a.Scanner.Text())
 
-			searchInt, err := strconv.Atoi(a.Scanner.Text())
-			if err != nil {
-				fmt.Printf("Error: failed converting to int: %s\n", err.Error())
-				continue
+				switch input {
+				case "n":
+					searchState.Next()
+					continue
+				case "p":
+					searchState.Prev()
+					continue
+				case "q":
+					goto nextSearch
+				default:
+					i, err := strconv.Atoi(input)
+					if err != nil || i < 1 || i > len(searchState.Results()) {
+						fmt.Println("invalid")
+						continue
+					}
+					return searchState.Results()[i-1].Url
+				}
 			}
-			if searchInt > 0 && searchInt <= len(results) {
-				return results[searchInt-1].Url
-			} else {
-				fmt.Println("Error: number is invalid.")
-				continue
-			}
-
+		nextSearch:
 		}
 	}
 }

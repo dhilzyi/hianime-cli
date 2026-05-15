@@ -44,6 +44,6 @@ func NewSession() (*http.Client, error) {
 	return &http.Client{
 		Jar:       jar,
 		Transport: transport,
-		Timeout:   15 * time.Second,
+		Timeout:   30 * time.Second,
 	}, nil
 }

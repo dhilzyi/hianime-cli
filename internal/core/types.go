@@ -2,12 +2,14 @@ package core
 
 // Series data anime
 type SeriesData struct {
-	Titles    Title
+	Titles Title
+
+	// from 'anilist.co' for jimaku and other things.
 	AnilistID int    `json:"anilist_id"`
 	SeriesUrl string `json:"series_url"`
 }
 
-// Use for building commands for mpv to play.
+// Use for building commands mpv to play.
 type StreamData struct {
 	Url     string
 	Headers map[string]string
@@ -62,4 +64,17 @@ type SearchResult struct {
 	Duration       int
 	Url            string
 	Year           int
+}
+
+type SearchPage struct {
+	// Results for data and ui print
+	Results []SearchResult
+
+	// Current page number for next and prev if available
+	Page    int
+	HasNext bool
+	HasPrev bool
+
+	// Raw input query for key
+	Query string
 }
