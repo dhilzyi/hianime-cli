@@ -3,6 +3,7 @@ package anikoto
 import (
 	"crypto/rand"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -127,4 +128,36 @@ func parseServers(cleanHtml string) (map[string]server, error) {
 	})
 
 	return servers, nil
+}
+
+func parseSearch(body io.ReadCloser) ([]core.SearchResult, error) {
+	doc, err := goquery.NewDocumentFromReader(body)
+	if err != nil {
+		return nil, err
+	}
+
+	var searches []core.SearchResult
+	listEle := doc.Find("#list-items")
+	listEle.Find("div.item").Each(func(i int, s *goquery.Selection) {
+		aEle := s.Find("a.name")
+		jpTitle, _ := aEle.Attr("data-jp")
+		seriesURL, exists := aEle.Attr("href")
+		if !exists {
+			fmt.Printf("Could not find link series url: %s", aEle.Text())
+			return
+		}
+		typeSeries := s.Find("div.right").Text()
+		epsTotalRaw := s.Find("span.total > span").Text()
+		epsTotal, _ := strconv.Atoi(epsTotalRaw)
+		searches = append(searches, core.SearchResult{
+			Url:            seriesURL,
+			Type:           typeSeries,
+			NumberEpisodes: epsTotal,
+			Titles: core.Title{
+				RomajiTitle:  jpTitle,
+				EnglishTitle: aEle.Text(),
+			},
+		})
+	})
+	return searches, nil
 }

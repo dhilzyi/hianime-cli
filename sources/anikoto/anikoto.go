@@ -62,6 +62,7 @@ func (a *Anikoto) GetEpisodes() ([]core.Episode, *core.SeriesData, error) {
 
 	return epsCore, &seriesData.SeriesData, nil
 }
+
 func (a *Anikoto) GetServers(episode core.Episode) ([]core.Server, error) {
 	serversData, err := a.session.getServers(a.episodes[episode.Number].serverDataId)
 	if err != nil {
@@ -101,8 +102,13 @@ func (a *Anikoto) GetStreamData(serverKey string) (core.StreamData, error) {
 	return streamData, nil
 }
 
-func (a *Anikoto) GetSearchResults(rawInput string) ([]core.SearchResult, error) {
-	return nil, fmt.Errorf("not implemented")
+func (a *Anikoto) GetSearchResults(rawQuery string) ([]core.SearchResult, error) {
+	searchResult, err := a.session.getSearch(rawQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	return searchResult, nil
 }
 
 func (a *Anikoto) ExtractProviderID() (string, error) {
