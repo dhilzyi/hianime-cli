@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dhilzyi/hianime-cli/internal/app"
 	"github.com/dhilzyi/hianime-cli/internal/config"
 	"github.com/dhilzyi/hianime-cli/internal/state"
 
@@ -16,15 +17,16 @@ func main() {
 		fmt.Println("Fail to initialize path: " + err.Error())
 	}
 
-	history, err := state.LoadHistory(appDir.DataDir)
-	if err != nil {
-		fmt.Println("Fail to load history file: " + err.Error())
-	}
 	cfg, err := config.LoadConfig(appDir.ConfigDir, "v1.9.0")
 	if err != nil {
 		fmt.Println("Fail to load config file: " + err.Error())
 	}
+	history, err := state.LoadHistory(appDir.DataDir)
+	if err != nil {
+		fmt.Println("Fail to load history file: " + err.Error())
+	}
 
+	cache := app.NewCache()
 	initialModel := model{
 		state:  StateHistory,
 		cursor: 0,
@@ -33,6 +35,7 @@ func main() {
 		session: &session{
 			historyList: history,
 		},
+		appCache: cache,
 	}
 
 	p := tea.NewProgram(initialModel)

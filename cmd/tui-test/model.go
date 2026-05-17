@@ -2,13 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/dhilzyi/hianime-cli/internal/app"
 	"github.com/dhilzyi/hianime-cli/internal/config"
-	"github.com/dhilzyi/hianime-cli/internal/core"
-	"github.com/dhilzyi/hianime-cli/internal/state"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -16,10 +13,16 @@ import (
 type screenState int
 
 const (
+	// Main state
 	StateHistory screenState = iota
 	StateEpisodes
+	StateServer
 	StatePlaying
 
+	// Message state
+	StateError
+
+	// Miscellaneous
 	StateConfigSettings
 )
 
@@ -28,31 +31,26 @@ type model struct {
 	cursor int
 	subs   bool
 
-	session *session
-	cfg     *config.Config
+	err *errData
+
+	session  *session
+	cfg      *config.Config
+	appCache *app.Cache
 }
 
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
-type session struct {
-	urlSeries string
-
-	provider   core.Provider
-	seriesData core.SeriesData
-
-	historyList []state.History
-	episodeList []core.Episode
-	serverList  []core.Episode
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		// Global control
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+
+		// Per state control
 		switch m.state {
 		case StateHistory:
 			switch msg.String() {
@@ -73,11 +71,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "c":
 				m.state = StateConfigSettings
 			case "enter":
-				m.session.urlSeries = m.session.historyList[m.cursor].Metadata.SeriesUrl
-				fetchResult, err := app.ResolveInput(app.ResolveParams{URL: m.session.urlSeries}, app.NewCache())
+				m.session.selected.history = m.session.historyList[m.cursor]
+				m.session.urlSeries = m.session.selected.history.Metadata.SeriesUrl
+				fetchResult, err := app.ResolveInput(app.ResolveParams{URL: m.session.urlSeries}, m.appCache)
 				if err != nil {
-					log.Fatal(err)
-					return m, tea.Quit
+					sendErr(&m, err)
+					return m, nil
 				}
 				m.session.provider = fetchResult.Provider
 				m.session.episodeList = fetchResult.Episodes
@@ -102,6 +101,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor = 0
 				}
 			case "enter":
+				m.session.selected.episode = m.session.episodeList[m.cursor]
+				servers, err := m.session.provider.GetServers(m.session.selected.episode)
+				if err != nil {
+					sendErr(&m, err)
+					return m, nil
+				}
+
+				m.session.serverList = servers
+				m.cursor = 0
+				m.state = StateServer
+			}
+		case StateServer:
+			switch msg.String() {
+			case "q", "esc":
+				m.cursor = 0
+				m.state = StateEpisodes
+			case "up", "k":
+				m.cursor--
+				if m.cursor < 0 {
+					m.cursor = len(m.session.serverList) - 1
+				}
+			case "down", "j":
+				m.cursor++
+				if m.cursor >= len(m.session.serverList) {
+					m.cursor = 0
+				}
+			}
+		case StateError:
+			switch msg.String() {
+			case "enter", "q", "esc":
+				m.cursor = 0
+				m.state = m.err.errState
+
+				m.err = nil
 			}
 		}
 
@@ -136,6 +169,21 @@ func (m model) View() tea.View {
 			fmt.Fprintf(&buf, fmt.Sprintf("[%d] %s\n", ep.Number, ep.Titles.GetPreferredTitle()))
 		}
 		fmt.Fprintf(&buf, "\nSelected: %s", m.session.episodeList[m.cursor].Titles.GetPreferredTitle())
+	case StateServer:
+		buf.WriteString("--- AVAILABLE SERVERS ---\n\n")
+		for i, srv := range m.session.serverList {
+			if m.cursor == i {
+				buf.WriteString("-> ")
+			} else {
+				buf.WriteString("   ")
+			}
+			fmt.Fprintf(&buf, fmt.Sprintf("[%d] %s\n", i+1, srv.Name))
+		}
+	case StateError:
+		buf.WriteString("--- ERROR ---\n\n")
+		buf.WriteString("Something unexpected just occured\n")
+		fmt.Fprintf(&buf, "Error: %s\n", m.err.errMsg.Error())
+		fmt.Fprintf(&buf, "\n\nPress 'enter' to continue...\n")
 	}
 
 	return tea.NewView(buf.String())
